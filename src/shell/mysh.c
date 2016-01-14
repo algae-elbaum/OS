@@ -282,8 +282,20 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
         if (child_pid == -1)
         {
             REPORT_ERR("Fork failed");
-            //TODO ohshit what do we do... do children wait to run until they
-            // know somehow that all forks succeeded?
+            // murder all pipes, break (waits for all children to die)
+            int j = 0;
+            for (j = 0; j < cmds->num_commands, j++)
+            {
+                int err = 0;
+                err = close(pipes[i]);
+                if (err == -1)
+                {
+                    REPORT_ERR("pipe closing failed");
+                    break;
+                }
+            }
+
+            break;
         }
         if (child_pid == 0) // am child
         {
