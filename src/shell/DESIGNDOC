@@ -12,14 +12,14 @@ Kyle Seipp kseipp@caltech.edu
 Bianca Ray-Avalani LastName <email@domain.example>
 Henry Elbaum helbaum@caltech.edu
 
->> Specify how many late tokens you are using on this assignment:  
+>> Specify how many late tokens you are using on this assignment:
 0
 
 >> What is the Git repository and commit hash for your submission?
    (You only need to include the commit-hash in the file you submit
    on Moodle.)
 
-   Repository URL:  
+   Repository URL:
    commit ...
 
 ---- PRELIMINARIES ----
@@ -43,12 +43,15 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
-   Henry: ~~10
+Henry: ~~10
+Kyle: 10
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
-   Henry: Piping and forking algorithm, helping build parser
+Henry: Piping and forking algorithm, helping build parser
+Kyle: Parsing the strings. Stripping whitespace and putting the tokens
+into the parsed command struct.
 
 ---- DATA STRUCTURES ----
 Tokens are space/pipe/inequality symbols/null character delimited substrings
@@ -56,7 +59,7 @@ of the command string, except when quotes dictate otherwise.
 
 Subcommands are the individual commands within the whole command
 
-subcommand delimiters are the same as token delimiters except for spaces 
+subcommand delimiters are the same as token delimiters except for spaces
 
 struct used:
 typedef struct
@@ -72,15 +75,15 @@ typedef struct
 >> command "a arg1 arg2 | b arg1 | c arg1 arg2 arg3".  How does your
 >> shell internally represent such a command?
 
-Parsing consists of building a parsed_commands object. It starts by building 
-members of the object by shoving tokens into object.commands[0] until a 
+Parsing consists of building a parsed_commands object. It starts by building
+members of the object by shoving tokens into object.commands[0] until a
 subcommand delimiter comes up (resulting in something like
 object.commands[0] = ["a", "arg1", "arg2"]). Then a new subcommand 
 is made, which ends up as ["b", "arg1"]. And finally a new subcommand is
 made as ["c", "arg1", "arg2", "arg3"]. Then our end of input character is
 found, we put NULL into the file_in and file_out parts, and set num_commands=3.
 Then when it comes to execing, 2 pipes are made, and we loop over the number
-of processes, spawning a child with each iteration. The children grab the 
+of processes, spawning a child with each iteration. The children grab the
 file descriptors they want from the pipes they want and put them into stdin
 and stdout, and then exec. The shell then gets to the end of the for loop
 (none of the children do since execing doesn't return), where it waits for
@@ -97,7 +100,7 @@ command
 Everything is does the same as above, except for that in parsing when a < or >
 character is found, the next token is taken to be file_in or file_out respectively.
 And after that token is read, either a pipe is seen so the parser know to start
-building a new subcommand, or sees our end of input character and finishes the 
+building a new subcommand, or sees our end of input character and finishes the
 parsing. Then when it comes to running the commands, the very first and very last
 children spawned know to set their stdin and stdout to open(file_in) and
 open(file_out) respectively.
@@ -110,7 +113,7 @@ open(file_out) respectively.
 >> describing what process takes care of the redirection and when.
 
 In parsing, we set the file_in member of the parsed_commands struct to
-"inp.txt", and we set the file_out member to be "out.txt". Then when the 
+"inp.txt", and we set the file_out member to be "out.txt". Then when the
 child processes are forked, they children can know if they're supposed to run
 the very first or the very last subcommand, so they can know to open file_in
 or file_out and dup2 accordingly
@@ -145,7 +148,7 @@ we wouldn't get that effect on the shell
 
 The main other design idea considered involved making a chain of children, each
 descended from the one before. The problem of waiting for grandchildren being
-impossible was to be solved by making a pipe to the shell process through which 
+impossible was to be solved by making a pipe to the shell process through which
 it could be told the pids of all the children, and once it got the right number
 of pids it would continuously check to see if they're all running. This is by
 itself awful and way less clean than the current implementation, both because
@@ -170,6 +173,9 @@ penalized.  We can't fix things until we know about them.  :-)
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+
+Parsing strings in C is ... unpleasant. Does make me wonder how bash does it
+given that they are far more robust.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
