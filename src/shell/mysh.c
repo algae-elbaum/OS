@@ -186,8 +186,18 @@ parsed_commands *parse_commands(char *command_buffer)
     int i,j;
 
     parsed_commands *answer= malloc(sizeof(parsed_commands));
+    if (answer == NULL)
+    {
+        REPORT_ERR("Malloc answer failed.");
+        exit(1);
+    }
     answer->num_commands = 0;
     answer->commands = malloc(sizeof(char *) * MAX_CMD_SIZE/2); //list of commands
+    if (answer->commands == NULL)
+    {
+        REPORT_ERR("Malloc answer->commands failed");
+        exit(1);
+    }
 
     char curr_token[1024]; // tokens are space separated bin,args, etc.
     i = 0;
@@ -208,6 +218,11 @@ parsed_commands *parse_commands(char *command_buffer)
                 // printf("curr_token: %s\n", curr_token);
                 answer->commands[answer->num_commands][j] = 
                     malloc(sizeof(char) * strlen(curr_token));
+                if (answer->commands[answer->num_commands][j] == NULL)
+                {
+                    REPORT_ERR("Malloc answer->commands[answer->num_commands][j] failed");
+                    exit(1);
+                }
                 answer->commands[answer->num_commands][j] = 
                     strcpy(answer->commands[answer->num_commands][j], curr_token);
                 j ++;
@@ -221,7 +236,7 @@ parsed_commands *parse_commands(char *command_buffer)
             {
                 i ++;
             }
-            // Make sure to null terminate for strlen
+            // Make sure to= NULL terminate for strlen
             answer->commands[answer->num_commands][j] = '\0';
             answer->num_commands += 1;
         }
@@ -233,12 +248,22 @@ parsed_commands *parse_commands(char *command_buffer)
         {
             i = get_next_token(curr_token, new_command_buffer, i+1);
             answer->file_in = malloc(sizeof(char) * strlen(curr_token));
+            if (answer->file_in == NULL)
+            {
+                REPORT_ERR("Malloc answer->file_in failed");
+                exit(1);
+            }
             answer->file_in = strcpy(answer->file_in, curr_token);
         }
         if (new_command_buffer[i] == '>')
         {
             i = get_next_token(curr_token, new_command_buffer, i+1);
             answer->file_out = malloc(sizeof(char) * strlen(curr_token));
+            if (answer->file_out == NULL)
+            {
+                REPORT_ERR("Malloc answer->file_out failed");
+                exit(1);
+            }
             answer->file_out = strcpy(answer->file_out, curr_token);
         }
     }
@@ -260,7 +285,7 @@ parsed_commands *parse_commands(char *command_buffer)
     // }
 
     // // DEBUG: Tests redirection
-    
+
     // printf("Input: %s\n", answer->file_in);
     // printf("Output: %s\n", answer->file_out);
     return answer;
