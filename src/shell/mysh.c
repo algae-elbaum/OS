@@ -74,7 +74,14 @@ void get_commands(char *command_buffer)
     printf("%s\n", get_prompt());
     // Getting multiline commands from here doesn't sound too bad if we read the string
     // in this function as well.
-    fgets(command_buffer, MAX_CMD_SIZE, stdin);
+    char temp[MAX_CMD_SIZE];
+    command_buffer[0] = '\0';
+    do
+    {
+        fgets(temp, MAX_CMD_SIZE, stdin);
+        strcat(command_buffer, temp);
+
+    } while (temp[strlen(temp)-2] == '\\');
 }
 /**
 This function finds the next token of buffer starting at position i
@@ -120,6 +127,7 @@ int get_next_token(char *dest, char* buffer, int i)
 /**
 This function removes the whitespace from an input string and puts the 
 result into new_command_buffer.
+Also stips out the \ character and newlines.
 **/
 void strip_whitespace(char *command_buffer, char *new_command_buffer)
 {
@@ -131,6 +139,10 @@ void strip_whitespace(char *command_buffer, char *new_command_buffer)
     for (i = 0; i < strlen(command_buffer); ++i)
     {
         copy_these[i] = true;
+        if (command_buffer[i] == '\\' || command_buffer[i] == '\n')
+        {
+            copy_these[i] = false;
+        }
     }
     // This will fail if the first character is a pipe or redirect
     // or if one of those is the last character

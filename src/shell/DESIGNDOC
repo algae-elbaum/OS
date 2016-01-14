@@ -27,6 +27,8 @@ Henry Elbaum helbaum@caltech.edu
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please include them here.
 
+Multiline commands as long as each line ends with a "\" character
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course instructors.
