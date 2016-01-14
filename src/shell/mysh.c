@@ -246,6 +246,7 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
     if (strcmp(cmds->commands[0][0], "exit") == -1)
     {
         // This one's easy!
+        // freeing not always necessary
         free_parsed_commands(cmds);
         exit(0);
     }
