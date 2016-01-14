@@ -42,11 +42,11 @@ int main(int argc, char const *argv[])
     {
         get_commands(command_buffer);
         parsed_commands *cmds = parse_commands(command_buffer);
-        // printf("%s\n", cmds->commands);
-        // int pipes[cmds->num_commands][2];
-        // if (build_pipes(cmds->num_commands, pipes) != -1)
-        //     exec_commands_list(cmds, pipes);  
-        // free_parsed_commands(cmds);
+
+        int pipes[cmds->num_commands][2];
+        if (build_pipes(cmds->num_commands, pipes) != -1)
+            exec_commands_list(cmds, pipes);  
+        free_parsed_commands(cmds);
     }
 }
 
@@ -67,49 +67,82 @@ char *get_prompt()
     return prompt;
 }
 
-// Pound characters from stdin into the command buffer until a newline comes in
+// Gets characters from stdin into the command buffer until a newline comes in
 // As per assignment, assuming all commands are < 1 KiB
 void get_commands(char *command_buffer)
 {
     printf("%s\n", get_prompt());
     // Getting multiline commands from here doesn't sound too bad if we read the string
     // in this function as well.
-    fgets(command_buffer, MAX_CMD_SIZE, stdin);
-}
+    char temp[MAX_CMD_SIZE];
+    command_buffer[0] = '\0';
+    do
+    {
+        fgets(temp, MAX_CMD_SIZE, stdin);
+        strcat(command_buffer, temp);
 
+    } while (temp[strlen(temp)-2] == '\\');
+}
+/**
+This function finds the next token of buffer starting at position i
+and places it in dest. It returns the position at which the token ends
+
+There are some awkward issues with dealing with quotes.
+**/
 int get_next_token(char *dest, char* buffer, int i)
 {
-    int j = i;
-    bool quotes_mode = false;
-    for (;i < strlen(buffer) - 1; ++i)
+    // We want to strip out the quote so we need to skip one
+    if (buffer[i] == '"')
     {
-        if(buffer[i] == '\"')
-        {
-            quotes_mode = !quotes_mode;
-        }
-        else if (!quotes_mode && (buffer[i] == ' ' || buffer[i] == '\t' || 
-            buffer[i] == '>' || buffer[i] == '<' || buffer[i] == '|' || buffer[i] == '\0'))
+        i ++;
+    }
+    int j = i;
+    // Check whether we are in a token that starts with a quote
+    bool quoted = false;
+    if(i>0)
+    {
+        quoted = (buffer[i-1] == '"');
+    }
+    // Loop through the buffer until we hit a special character
+    for (;i < strlen(buffer); ++i)
+    {
+        // The empty string should never be a bin or an arg
+        // The args should be separated by spaces regardless of quotes
+        // e.g. "a""b" is not valid but "a" "b" is.
+       if (buffer[i] == '"' || (!quoted && (buffer[i] == ' ' || buffer[i] == '\t')) || 
+            buffer[i] == '>' || buffer[i] == '<' || buffer[i] == '|' || buffer[i] == '\0')
         {
             break;
         }
     }
     strncpy(dest, buffer + j, i-j);
-    dest[i] = '\0';
+    // Make sure to null terminate
+    dest[i-j] = '\0';
+    if (buffer[i] == '"')
+    {
+        i ++;
+    }
     return i;
 }
-
-// Build a parsed commands struct from the command in the command buffer
-parsed_commands *parse_commands(char *command_buffer)
+/**
+This function removes the whitespace from an input string and puts the 
+result into new_command_buffer.
+Also stips out the \ character and newlines.
+**/
+void strip_whitespace(char *command_buffer, char *new_command_buffer)
 {
-    //TODO
-    int i;
-    int j;
+    int i,j;
     bool quotes_mode = false;
     bool copy_these[MAX_CMD_SIZE];
-    // remove whitespace around | < and >
+    // We want to remove whitespace around | < and >
+    // By default we expect all characters to be in the new buffer
     for (i = 0; i < strlen(command_buffer); ++i)
     {
         copy_these[i] = true;
+        if (command_buffer[i] == '\\' || command_buffer[i] == '\n')
+        {
+            copy_these[i] = false;
+        }
     }
     // This will fail if the first character is a pipe or redirect
     // or if one of those is the last character
@@ -120,8 +153,11 @@ parsed_commands *parse_commands(char *command_buffer)
         {
             quotes_mode = !quotes_mode;
         }
-        else if(command_buffer[i] == '|' || command_buffer[i] == '<' || command_buffer[i] == '>')
+        else if(command_buffer[i] == '|' || command_buffer[i] == '<' 
+            || command_buffer[i] == '>')
         {
+            // When we see a special character, remove spaces to the 
+            // left and right until there are no more.
             j = 1;
             while (command_buffer[i-j] == ' ' || command_buffer[i-j] == '\t')
             {
@@ -136,7 +172,7 @@ parsed_commands *parse_commands(char *command_buffer)
             }
         }
     }
-    char new_command_buffer[MAX_CMD_SIZE];
+
     // We subtract one to remove the newline character
     j = 0;
     for (i = 0; i < strlen(command_buffer) - 1; ++i)
@@ -147,60 +183,123 @@ parsed_commands *parse_commands(char *command_buffer)
             j ++;
         }
     }
+    // Manually add a null terminator so we can use strlen
     new_command_buffer[j] = '\0';
 
-    //These three prints are for testing purposes
-    printf("new command buffer: %s\n", new_command_buffer);
+    // DEBUG: Prints the input without whitespace
+    // printf("new command buffer: %s\n", new_command_buffer);
+}
 
-    // The following code is for actually doing the parsing. It's not yet complete
+// Build a parsed commands struct from the command in the command buffer
+parsed_commands *parse_commands(char *command_buffer)
+{
+    char new_command_buffer[MAX_CMD_SIZE];
+    strip_whitespace(command_buffer, new_command_buffer);
+    int i,j;
 
     parsed_commands *answer= malloc(sizeof(parsed_commands));
+    if (answer == NULL)
+    {
+        REPORT_ERR("Malloc answer failed.");
+        exit(1);
+    }
     answer->num_commands = 0;
     answer->commands = malloc(sizeof(char *) * MAX_CMD_SIZE/2); //list of commands
+    if (answer->commands == NULL)
+    {
+        REPORT_ERR("Malloc answer->commands failed");
+        exit(1);
+    }
 
-    char curr_token[1024]; // whatever space seperated string thing im on
+    char curr_token[1024]; // tokens are space separated bin,args, etc.
     i = 0;
     while (i < strlen(new_command_buffer))
     {   
+        // When we start a new command
         if (new_command_buffer[i] == '|' || i == 0)
         {
-            printf("gotta pipe\n");
-            // take big command and move it to command list
-            //then start new big command
             answer->commands[answer->num_commands] = malloc(sizeof(char *) * MAX_CMD_SIZE/2);
-            //have to deep copy somehow???
             j = 0;
             do
             {
-                i = get_next_token(curr_token, new_command_buffer, i + (new_command_buffer[i] == '|'));
-                answer->commands[answer->num_commands][j] = malloc(sizeof(char) * strlen(curr_token));
-                answer->commands[answer->num_commands][j] = strcpy(answer->commands[answer->num_commands][j], curr_token);
-                // printf("%c\n", new_command_buffer[j]);
+                // We get the next token. We add an extra one to get rid of the white space
+                // args (and bins) are separated by whitespace, but we don't want that in 
+                // out tokens. So we make sure to use i+1 when it isn't the first command.
+                i = get_next_token(curr_token, new_command_buffer, i + (i != 0));
+                // DEBUG: This prints the current token.
+                // printf("curr_token: %s\n", curr_token);
+                answer->commands[answer->num_commands][j] = 
+                    malloc(sizeof(char) * strlen(curr_token));
+                if (answer->commands[answer->num_commands][j] == NULL)
+                {
+                    REPORT_ERR("Malloc answer->commands[answer->num_commands][j] failed");
+                    exit(1);
+                }
+                answer->commands[answer->num_commands][j] = 
+                    strcpy(answer->commands[answer->num_commands][j], curr_token);
                 j ++;
             } while(new_command_buffer[i] != '|' && new_command_buffer[i] != '<' && 
-                new_command_buffer[i] != '>' && new_command_buffer[i] != '\0');
+                new_command_buffer[i] != '>' && new_command_buffer[i] != '\0' &&
+                !(new_command_buffer[i] == '"' && new_command_buffer[i+1] == '\0'));
 
+            // If we end on a quote, then we need to make sure to not
+            // include it as part of the arg value, or try to make it its own token.
+            if (new_command_buffer[i] == '"' && new_command_buffer[i+1] == '\0')
+            {
+                i ++;
+            }
+            // Make sure to= NULL terminate for strlen
+            answer->commands[answer->num_commands][j] = '\0';
             answer->num_commands += 1;
-            printf("nosmoking\n");
         }
+
+        // In case of redirects, get the token, and put it into our parsed command 
+        // struct.
+        // There should only be one > and one < in a line.
         if (new_command_buffer[i] == '<')
         {
             i = get_next_token(curr_token, new_command_buffer, i+1);
             answer->file_in = malloc(sizeof(char) * strlen(curr_token));
+            if (answer->file_in == NULL)
+            {
+                REPORT_ERR("Malloc answer->file_in failed");
+                exit(1);
+            }
             answer->file_in = strcpy(answer->file_in, curr_token);
         }
         if (new_command_buffer[i] == '>')
         {
             i = get_next_token(curr_token, new_command_buffer, i+1);
             answer->file_out = malloc(sizeof(char) * strlen(curr_token));
+            if (answer->file_out == NULL)
+            {
+                REPORT_ERR("Malloc answer->file_out failed");
+                exit(1);
+            }
             answer->file_out = strcpy(answer->file_out, curr_token);
         }
     }
-    for (i = 0; i < answer->num_commands; ++i)
-    {
-        printf("%s\n", answer->commands[i][0]);
-    }
-    // printf("%s\n", answer->commands[0][0]);
+
+    // DEBUG:
+    // Prints out everything that we are doing on that line
+    // Each Command is on a new line and commands and args are
+    // separated by ":"
+
+    // for (i = 0; i < answer->num_commands; ++i)
+    // {
+    //     j = 0;
+    //     while(answer->commands[i][j] != '\0')
+    //     {
+    //         printf("%s:", answer->commands[i][j]);
+    //         j ++;
+    //     }
+    //     printf("\n");
+    // }
+
+    // // DEBUG: Tests redirection
+
+    // printf("Input: %s\n", answer->file_in);
+    // printf("Output: %s\n", answer->file_out);
     return answer;
 }
 
@@ -253,19 +352,20 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
     if (strcmp(cmds->commands[0][0], "make_me_a_sandwich") == 0)
     {
         // ascii from http://www.ascii-art.de/ascii/s/sandwich.txt
-        printf("                    _.---._\
-                _.-~       ~-._\
-            _.-~               ~-._\
-        _.-~                       ~---._\
-    _.-~                                 ~\\\
- .-~                                    _.;\
- :-._                               _.-~ ./\
- }-._~-._                   _..__.-~ _.-~)\
- `-._~-._~-._              / .__..--~_.-~\
-     ~-._~-._\\.        _.-~_/ _..--~~\
-         ~-. \\`--...--~_.-~/~~\
-            \\.`--...--~_.-~\
-              ~-..----~");
+        printf("\
+                    _.---._\n\
+                _.-~       ~-._\n\
+            _.-~               ~-._\n\
+        _.-~                       ~---._\n\
+    _.-~                                 ~\\\n\
+ .-~                                    _.;\n\
+ :-._                               _.-~ ./\n\
+ }-._~-._                   _..__.-~ _.-~)\n\
+ `-._~-._~-._              / .__..--~_.-~\n\
+     ~-._~-._\\.        _.-~_/ _..--~~\n\
+         ~-. \\`--...--~_.-~/~~\n\
+            \\.`--...--~_.-~\n\
+              ~-..----~\n");
         return;
     }
 
