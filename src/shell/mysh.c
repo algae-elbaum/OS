@@ -388,10 +388,10 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
             {
                 int err = 0;
                 err = close(pipes[i]);
-                if (err == -1)
+                if (err != 0)
                 {
                     REPORT_ERR("pipe closing failed");
-                    break;
+                    return; // or break?
                 }
             }
 
@@ -399,16 +399,59 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
         }
         if (child_pid == 0) // am child
         {
-            // Set up redirects
-            if (i == 0) // am first child
-            {
-//                dup2(, STDIN_FILENO);
+            if (cmds->num_commands != 1)
+            {                   
+                // Set up redirects
+                if (i == 0) // am first child
+                {
+                    int desc;
+                    
+                    // write using stdout
+                    dup2(pipes[i][1], STDOUT_FILENO);
+
+                    // redirect to file_in
+                    if (cmds->file_in != NULL)
+                    {
+                        desc = open(cmds->file_in);
+
+                        if (desc != 0)
+                        {
+                            REPORT_ERR("open failed");
+                        }
+
+                        dup2(desc, STDIN_FILENO);
+                    }
+                }
+                if (i == cmds->num_commands - 1) // am last child
+                {
+                    int desc;
+
+                    // read using stdin       
+                    dup2(pipes[i-1][0], STDIN_FILENO);
+    
+                    // redirect to file out
+                    if (cmds->file_out != NULL)
+                    {
+                        desc = open(cmds->file_out);
+
+                        if (desc != 0)
+                        {
+                            REPORT_ERR("open failed");
+                        }
+                        dup2(desc, STDOUT_FILENO);
+                    }
+                }
+                else // if at any other position
+                {
+                    // both read and write
+                    // no redirects
+                    dup2(pipes[i-1][0], STDOUT_FILENO);
+                    dup2(pipes[i][1], STDIN_FILENO);
+                }
             }
-            if (i == cmds->num_commands - 1) // am last child
-            {
-//                dup2(, STDOUT_FILENO);
-            }
+
             
+    
             // Set up pipes
 //            dup2(, STDIN_FILENO);
 //            dup2(, STDOUT_FILENO);
@@ -416,10 +459,32 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
             // And run
 //            execlp();
               // children should never ever get here
+            // check for failure
+            // halp halp what do
         }
         // else am still command line
         child_pids[i] = child_pid;
     }
     // Only the command line gets here
     // Wait for all the children to finish, then return
+
+    int i;
+    for (i = 0; i < cmds->num_commands; i++)
+    {
+        int w;
+        w = waitpid(child_pids[i]);
+        if (w != child_pids[i])
+        {
+            REPORT_ERR("wait failed");
+        }
+    }
+   
+    int err = 0;
+    err = close(pipes[i]);
+    if (err != 0)
+    {
+        REPORT_ERR("pipe closing failed");
+        return; // or break?
+    }
 }
+ 
