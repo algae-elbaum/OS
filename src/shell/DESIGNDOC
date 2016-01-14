@@ -125,12 +125,32 @@ or file_out and dup2 accordingly
 >> Keep your description of each process' responsibilities limited to
 >> ~25 words or less.
 
+After we know how many processes are to be spawned, we make that many pipes, minus
+1. Then as each process is spawned, it knows which process it is, so the ith
+process takes the i-1th's read end for stdin and the ith's out end for stdout
+before execing. In the case of the i=0 and i = num_processes-1 edge cases,
+the processes don't try to use pipes that don't exist, but rather redirect
+as appropriate.
+
+in the example, shell sets creates int pipes[2][2] full of int[2]s that have
+been piped up. Then 'a sets stdout to pipes[0][1], 'b sets stdin to pipes[0][0],
+'b sets stdout to pipes[1][1], c sets stdin to pipes[1][0]
+
+After sll the child processes close, the shell closes the pipes
+
 >> A5: Similarly, describe the details of how terminated processes are
 >> reaped in the example command "a | b | c".
 
 >> A6: Similarly, describe which processes are responsible for setting
 >> up the redirections in the example command
 >> "a < inp.txt | b | c > out.txt".
+
+The shell records the filenames for the file to be redirected in and the file to
+be redirected out into, setting them to NULL if there's no such filename given.
+Then the first subcommand opens the redirected in file and sets stdin to the
+resulting file (if the filename is NULL, it just leaves stdin as stdin). Similarly
+the last subcommand opens the redirected out file and sets stout to the resulting
+file (and again, if the filename was NULL, nothing is done)
 
 ---- RATIONALE ----
 
