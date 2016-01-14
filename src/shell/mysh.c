@@ -321,7 +321,20 @@ int build_pipes(int num_commands, int (*pipes)[2])
 // Does what it says
 void free_parsed_commands(parsed_commands *cmds)
 {
-    //TODO
+    int i, j = 0;
+    // iterate through commands array
+    for (i = 0; i < cmds->num_commands; i++)
+    {
+        // iterate through and free strings
+        while(cmds->commands[i][j] != NULL)
+        {
+            // swim free, my pretties
+            free(cmds->commands[i][j]);
+            j++;
+        }
+        free(cmds->commands[i]); // free array of strings
+    }
+    free(cmds->commands); // free giant commands array
 }
 
 // Here's the hard work. Spawn all the child processes, piping and redirecting 
@@ -450,14 +463,8 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
                 }
             }
 
-            
-    
-            // Set up pipes
-//            dup2(, STDIN_FILENO);
-//            dup2(, STDOUT_FILENO);
-
             // And run
-//            execlp();
+            execlp();
               // children should never ever get here
             // check for failure
             // halp halp what do
@@ -488,3 +495,4 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
     }
 }
  
+
