@@ -28,6 +28,7 @@ Henry Elbaum helbaum@caltech.edu
 >> TAs, or extra credit, please include them here.
 
 Multiline commands as long as each line ends with a "\" character
+History and up arrow to get previous commands works (readline libary)
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
@@ -45,16 +46,16 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
-Henry: ~14
-Kyle: 10
-Bianca: ~11
+Henry: ~15
+Kyle: 12
+Bianca: ~12
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
 Henry: Piping and forking algorithm and implementation, helping build parser
 Kyle: Parsing the strings. Stripping whitespace and putting the tokens
-into the parsed command struct.
+into the parsed command struct. multiline comments, history
 Bianca: Piping, child spawning, and redirection, freeing parsed commands, command execution
 
 ---- DATA STRUCTURES ----

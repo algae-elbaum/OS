@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
-#include <sys/types.h> 
-#include <sys/stat.h> 
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <readline/readline.h>
@@ -31,7 +31,6 @@ typedef struct
     int num_commands;
 } parsed_commands;
 
-void print_prompt();
 void get_commands(char *command_buffer);
 parsed_commands *parse_commands(char *command_buffer);
 int build_pipes(int (*pipes)[2], int num_pipes);
@@ -44,6 +43,7 @@ void exec_commands_list(parsed_commands *cmds);
 int main(int argc, char const *argv[])
 {
     char command_buffer[MAX_CMD_SIZE];
+    using_history();
 
     while(1)
     {
@@ -54,27 +54,21 @@ int main(int argc, char const *argv[])
     }
 }
 
-void print_prompt()
-{
-    /*
-    Generates a command prompt.
-
-    The format used is username:CWD>>> where CWD is the current working directory
-    We are currently using the getcwd() command to get that directory. This might have
-    to change when we use cd, depending on how cd is implemented
-    */
-    char * name = getlogin();
-    char * directory = getcwd(NULL, 0);
-    printf("%s:%s>>> ", name, directory);
-}
-
 // Gets characters from stdin into the command buffer until a newline comes in
 // As per assignment, assuming all commands are < 1 KiB
 void get_commands(char *command_buffer)
 {
-    print_prompt();
-    // Getting multiline commands from here doesn't sound too bad if we read the string
-    // in this function as well.
+    char * name = getlogin();
+    char * directory = getcwd(NULL, 0);
+    char prompt[sizeof(char) * (strlen(name) + strlen(directory) + 6)]; // extra terms for >>> etc.
+    prompt[0] = '\0';
+    strcat(prompt, name);
+    strcat(prompt, ":");
+    strcat(prompt, directory);
+    strcat(prompt, ">>> ");
+    free(directory);
+
+
     char * line = NULL;
     command_buffer[0] = '\0';
     do
@@ -83,10 +77,13 @@ void get_commands(char *command_buffer)
         {
                 free(line);
         }
-        line = readline("");
-        printf("printf: %s\n", line);
-        //fgets(temp, MAX_CMD_SIZE, stdin);
+        line = readline(prompt);
+        // There seem to be "still reachable" memleaks coming from here
+        // We believe this might come from the readline library. 
+        add_history(line);
         strcat(command_buffer, line);
+        // printf("print %c\n", line[strlen(line) -1]);
+        prompt[0] = '\0';
 
     } while (line[strlen(line)-1] == '\\');
     strcat(command_buffer, "\n");
@@ -108,7 +105,7 @@ int get_next_token(char *dest, char* buffer, int i)
     int j = i;
     // Check whether we are in a token that starts with a quote
     bool quoted = false;
-    if(i>0)
+    if(i > 0)
     {
         quoted = (buffer[i-1] == '"');
     }
@@ -230,6 +227,11 @@ parsed_commands *parse_commands(char *command_buffer)
         if (new_command_buffer[i] == '|' || i == 0)
         {
             answer->commands[answer->num_commands] = malloc(sizeof(char *) * MAX_CMD_SIZE/2);
+            if (answer->commands[answer->num_commands] == NULL)
+            {
+                REPORT_ERR("Malloc answer->commands[answer->num_commands] failed");
+                exit(1);
+            }
             j = 0;
             do
             {
@@ -240,7 +242,7 @@ parsed_commands *parse_commands(char *command_buffer)
                 // DEBUG: This prints the current token.
                 // printf("curr_token: %s\n", curr_token);
                 answer->commands[answer->num_commands][j] = 
-                    malloc(sizeof(char) * strlen(curr_token));
+                    malloc(sizeof(curr_token));
                 if (answer->commands[answer->num_commands][j] == NULL)
                 {
                     REPORT_ERR("Malloc answer->commands[answer->num_commands][j] failed");
@@ -296,21 +298,22 @@ parsed_commands *parse_commands(char *command_buffer)
     // Each Command is on a new line and commands and args are
     // separated by ":"
 
-     for (i = 0; i < answer->num_commands; ++i)
-     {
-         j = 0;
-         while(answer->commands[i][j] != '\0')
-         {
-             printf("%s:", answer->commands[i][j]);
-             j ++;
-         }
-         printf("\n");
-     }
+     // for (i = 0; i < answer->num_commands; ++i)
+     // {
+     //     j = 0;
+     //     while(answer->commands[i][j] != '\0')
+     //     {
+     //         printf("%s:", answer->commands[i][j]);
+     //         j ++;
+     //     }
+     //     printf("\n");
+     // }
 
     // // DEBUG: Tests redirection
 
-     printf("Input: %s\n", answer->file_in);
-     printf("Output: %s\n", answer->file_out);
+    //  printf("Input: %s\n", answer->file_in);
+    //  printf("Output: %s\n", answer->file_out);
+
     return answer;
 }
 
@@ -408,6 +411,13 @@ void exec_commands_list(parsed_commands *cmds)
     {
         // This one's easy!
         free_parsed_commands(cmds);
+        HIST_ENTRY ** temp = history_list();
+        for(; *temp != NULL; temp++)
+        {
+            free_history_entry(*temp);
+        }
+
+
         exit(0);
     }
     if (strcmp(cmds->commands[0][0], "make_me_a_sandwich") == 0)
