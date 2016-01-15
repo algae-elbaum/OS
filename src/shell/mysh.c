@@ -8,6 +8,8 @@
 #include <sys/stat.h> 
 #include <fcntl.h>
 #include <sys/wait.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 //Constants
 #define MAX_CMD_SIZE 1024
@@ -73,14 +75,22 @@ void get_commands(char *command_buffer)
     print_prompt();
     // Getting multiline commands from here doesn't sound too bad if we read the string
     // in this function as well.
-    char temp[MAX_CMD_SIZE];
+    char * line = NULL;
     command_buffer[0] = '\0';
     do
     {
-        fgets(temp, MAX_CMD_SIZE, stdin);
-        strcat(command_buffer, temp);
+        if(line != NULL)
+        {
+                free(line);
+        }
+        line = readline("");
+        printf("printf: %s\n", line);
+        //fgets(temp, MAX_CMD_SIZE, stdin);
+        strcat(command_buffer, line);
 
-    } while (temp[strlen(temp)-2] == '\\');
+    } while (line[strlen(line)-1] == '\\');
+    strcat(command_buffer, "\n");
+    free(line);
 }
 /**
 This function finds the next token of buffer starting at position i
@@ -203,6 +213,8 @@ parsed_commands *parse_commands(char *command_buffer)
         exit(1);
     }
     answer->num_commands = 0;
+    answer->file_in = NULL;
+    answer->file_out = NULL;
     answer->commands = malloc(sizeof(char *) * MAX_CMD_SIZE/2); //list of commands
     if (answer->commands == NULL)
     {
