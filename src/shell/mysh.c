@@ -115,8 +115,8 @@ int get_next_token(char *dest, char* buffer, int i)
         // The empty string should never be a bin or an arg
         // The args should be separated by spaces regardless of quotes
         // e.g. "a""b" is not valid but "a" "b" is.
-       if (buffer[i] == '"' || (!quoted && (buffer[i] == ' ' || buffer[i] == '\t')) || 
-            buffer[i] == '>' || buffer[i] == '<' || buffer[i] == '|' || buffer[i] == '\0')
+       if (buffer[i] == '"' || (!quoted && (buffer[i] == ' ' || buffer[i] == '\t' || 
+            buffer[i] == '>' || buffer[i] == '<' || buffer[i] == '|')) || buffer[i] == '\0')
         {
             break;
         }
