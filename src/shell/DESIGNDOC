@@ -52,7 +52,7 @@ Bianca: ~11
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
-Henry: Piping and forking algorithm, helping build parser
+Henry: Piping and forking algorithm and implementation, helping build parser
 Kyle: Parsing the strings. Stripping whitespace and putting the tokens
 into the parsed command struct.
 Bianca: Piping, child spawning, and redirection, freeing parsed commands, command execution
@@ -85,7 +85,12 @@ object.commands[0] = ["a", "arg1", "arg2"]). Then a new subcommand
 is made, which ends up as ["b", "arg1"]. And finally a new subcommand is
 made as ["c", "arg1", "arg2", "arg3"]. Then our end of input character is
 found, we put NULL into the file_in and file_out parts, and set num_commands=3.
-Then when it comes to execing, 2 pipes are made, and we loop over the number of processes, spawning a child with each iteration. The children grab the file descriptors they want from the pipes they want and put them into stdin and stdout, and then exec. The shell then gets to the end of the for loop (none of the children do since execing doesn't return), where it waits for the children to finish up, then closes all the pipes, and then asks for a new command
+Then when it comes to execing, 2 pipes are made, and we loop over the number of 
+processes, spawning a child with each iteration. The children grab the file 
+descriptors they want from the pipes they want and put them into stdin and stdout, close
+all the pipes they inherited from the shell, and then exec. The shell then gets to the 
+end of the for loop (none of the children do since execing doesn't return), where it 
+closes all pipes, waits for the children to finish up, and then asks for a new command
 
 
 >> A2: Now, given the command:
@@ -99,7 +104,7 @@ And after that token is read, either a pipe is seen so the parser know to start
 building a new subcommand, or sees our end of input character and finishes the
 parsing. Then when it comes to running the commands, the very first and very last
 children spawned know to set their stdin and stdout to open(file_in) and
-open(file_out) respectively.
+open(file_out) respectively and then close the fd from the open.
 
 
 ---- ALGORITHMS ----
@@ -110,7 +115,7 @@ open(file_out) respectively.
 
 In parsing, we set the file_in member of the parsed_commands struct to
 "inp.txt", and we set the file_out member to be "out.txt". Then when the
-child processes are forked, they children can know if they're supposed to run
+child processes are forked, the children can know if they're supposed to run
 the very first or the very last subcommand, so they can know to open file_in
 or file_out and dup2 accordingly
 
@@ -140,6 +145,12 @@ After sll the child processes close, the shell closes the pipes
 >> A5: Similarly, describe the details of how terminated processes are
 >> reaped in the example command "a | b | c".
 
+The shell keeps track of every child's pid in an array as they're spawned,
+so in the example after all all children are spawned there's an array
+[pidof(a), pidof(b), pidof(c)]. The shell closes all it's pipes, and then
+iterates over the child pids waiting on each of them, and then when all waits
+are finished it asks for the next command
+
 >> A6: Similarly, describe which processes are responsible for setting
 >> up the redirections in the example command
 >> "a < inp.txt | b | c > out.txt".
@@ -147,9 +158,10 @@ After sll the child processes close, the shell closes the pipes
 The shell records the filenames for the file to be redirected in and the file to
 be redirected out into, setting them to NULL if there's no such filename given.
 Then the first subcommand opens the redirected in file and sets stdin to the
-resulting file (if the filename is NULL, it just leaves stdin as stdin). Similarly
-the last subcommand opens the redirected out file and sets stout to the resulting
-file (and again, if the filename was NULL, nothing is done)
+resulting file and then frees the fd from opening (if the filename is NULL, it 
+just leaves stdin as stdin). Similarly the last subcommand opens the redirected 
+out file and sets stout to the resulting file and then frees the fd from opening 
+(and again, if the filename was NULL, nothing is done)
 
 ---- RATIONALE ----
 
