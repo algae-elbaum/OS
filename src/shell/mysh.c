@@ -4,13 +4,17 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <assert.h>
+#include <sys/types.h> 
+#include <sys/stat.h> 
+#include <fcntl.h>
+#include <sys/wait.h>
 
 //Constants
 #define MAX_CMD_SIZE 1024
 // Since doing this in a function can mess up errno maybe
 #define REPORT_ERR(error) {int errsv = errno; \
                            fprintf(stderr, error); \
-                           fprintf(stderr, ", errno=%d", errsv);};
+                           fprintf(stderr, ", errno=%d\n", errsv);};
 #define true 1
 #define false 0
 
@@ -25,13 +29,14 @@ typedef struct
     int num_commands;
 } parsed_commands;
 
-char *get_prompt();
+void get_prompt();
 void get_commands(char *command_buffer);
 parsed_commands *parse_commands(char *command_buffer);
-int build_pipes(int num_commands, int (*pipes)[2]);
+int build_pipes(int (*pipes)[2], int num_pipes);
+void close_pipes(int (*pipes)[2], int num_pipes);
 void free_parsed_commands(parsed_commands *cmds);
 void exec_command(char ** cmnd);
-void exec_commands_list(parsed_commands *cmds, int (*pipes)[2]);
+void exec_commands_list(parsed_commands *cmds);
 
 
 int main(int argc, char const *argv[])
@@ -42,15 +47,12 @@ int main(int argc, char const *argv[])
     {
         get_commands(command_buffer);
         parsed_commands *cmds = parse_commands(command_buffer);
-
-        int pipes[cmds->num_commands][2];
-        if (build_pipes(cmds->num_commands, pipes) != -1)
-            exec_commands_list(cmds, pipes);  
+        exec_commands_list(cmds);  
         free_parsed_commands(cmds);
     }
 }
 
-char *get_prompt()
+void print_prompt()
 {
     /*
     Generates a command prompt.
@@ -61,17 +63,14 @@ char *get_prompt()
     */
     char * name = getlogin();
     char * directory = getcwd(NULL, 0);
-    char * prompt = strcat(name, ":");
-    prompt = strcat(prompt, directory);
-    prompt = strcat(prompt, ">>>");
-    return prompt;
+    printf("%s:%s>>> ", name, directory);
 }
 
 // Gets characters from stdin into the command buffer until a newline comes in
 // As per assignment, assuming all commands are < 1 KiB
 void get_commands(char *command_buffer)
 {
-    printf("%s\n", get_prompt());
+    print_prompt();
     // Getting multiline commands from here doesn't sound too bad if we read the string
     // in this function as well.
     char temp[MAX_CMD_SIZE];
@@ -285,33 +284,35 @@ parsed_commands *parse_commands(char *command_buffer)
     // Each Command is on a new line and commands and args are
     // separated by ":"
 
-    // for (i = 0; i < answer->num_commands; ++i)
-    // {
-    //     j = 0;
-    //     while(answer->commands[i][j] != '\0')
-    //     {
-    //         printf("%s:", answer->commands[i][j]);
-    //         j ++;
-    //     }
-    //     printf("\n");
-    // }
+//     for (i = 0; i < answer->num_commands; ++i)
+//     {
+//         j = 0;
+//         while(answer->commands[i][j] != '\0')
+//         {
+//             printf("%s:", answer->commands[i][j]);
+//             j ++;
+//         }
+//         printf("\n");
+//     }
 
     // // DEBUG: Tests redirection
 
-    // printf("Input: %s\n", answer->file_in);
-    // printf("Output: %s\n", answer->file_out);
+//     printf("Input: %s\n", answer->file_in);
+//     printf("Output: %s\n", answer->file_out);
     return answer;
 }
 
 // Make all the pipes
-int build_pipes(int num_commands, int (*pipes)[2])
+int build_pipes(int (*pipes)[2],int num_pipes)
 {
     int i;
-    for (i = 0; i < num_commands - 1; i++)
+    for (i = 0; i < num_pipes; i++)
     {
         if (pipe(pipes[i]) == -1)
         {
             REPORT_ERR("Couldn't open pipe");
+            // Clean up pipes already made
+            close_pipes(pipes, i);
             return -1; // Failure
         }
     }
@@ -335,15 +336,46 @@ void free_parsed_commands(parsed_commands *cmds)
         free(cmds->commands[i]); // free array of strings
     }
     free(cmds->commands); // free giant commands array
+    free(cmds->file_in);
+    free(cmds->file_out);
+    free(cmds);
+}
+
+void close_pipes(int (*pipes)[2], int num_pipes)
+{
+    int i = 0;
+    for (i = 0; i < num_pipes; i++)
+    {
+        if (close(pipes[i][0]) == -1)
+        {
+            REPORT_ERR("pipe closing failed");
+        }
+        if (close(pipes[i][1]) == -1)
+        {
+           REPORT_ERR("pipe closing filed");
+        }
+    }
+}
+
+void wait_for_children(int *child_pids, int num_children)
+{
+    int i;
+    for (i = 0; i < num_children; i++)
+    {
+        int status;
+        int w = waitpid(child_pids[i], &status, 0);
+        if (w != child_pids[i])
+        {
+            REPORT_ERR("wait failed");
+        }
+    }
 }
 
 // Here's the hard work. Spawn all the child processes, piping and redirecting 
 // appropriately. Then wait for them to finish and return
-void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
+void exec_commands_list(parsed_commands *cmds)
 {
     // Special cases:
-    // In these special cases 'binary' is a misnomer, but otherwise in general
-    // it makes it more clear what's going on
     if (strcmp(cmds->commands[0][0], "cd") == 0 
             || strcmp(cmds->commands[0][0], "chdir") == 0)
     {
@@ -355,10 +387,9 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
         }
         return;
     }
-    if (strcmp(cmds->commands[0][0], "exit") == -1)
+    if (strcmp(cmds->commands[0][0], "exit") == 0)
     {
         // This one's easy!
-        // freeing not always necessary
         free_parsed_commands(cmds);
         exit(0);
     }
@@ -383,7 +414,33 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
     }
 
     // else it's a list of binaries to pipe together, along with the redirects
-    // TODO the rest of this
+
+    // First open all the pipes and redirect files
+    int num_pipes = cmds->num_commands - 1;
+    int pipes[num_pipes][2];
+    if (build_pipes(pipes, num_pipes) == -1)
+    {
+        REPORT_ERR("Couldn't build pipes");
+        return;
+    } 
+    int in_fd = (cmds->file_in != NULL) ? open(cmds->file_in, O_RDONLY) : -2;
+    if (in_fd == -1)
+    {
+        REPORT_ERR("Couldn't open infile");
+        close_pipes(pipes, num_pipes);
+        return;
+    }
+    int out_fd = (cmds->file_out != NULL) ? open(cmds->file_in, O_WRONLY | O_CREAT) : -2;
+    if (out_fd == -1)
+    {
+        REPORT_ERR("Couldn't open outfile");
+        close_pipes(pipes, num_pipes);
+        if (close(in_fd) == -1)
+        {
+            REPORT_ERR("Couldn't close infile.. that's ok I'm abandoning this command anyways");
+        }
+        return;
+    }
     /* 
        fork each child from the parent, pipe them, redirect them
      */
@@ -394,77 +451,51 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
         int child_pid = fork();
         if (child_pid == -1)
         {
-            REPORT_ERR("Fork failed");
-            // murder all pipes, break (waits for all children to die)
-            int j = 0;
-            for (j = 0; j < cmds->num_commands, j++)
+           REPORT_ERR("Fork failed, abandoning command");
+            // murder all pipes, wait for all children to die, then return
+            close_pipes(pipes, num_pipes);
+            if (in_fd != -2 && close(in_fd) == -1)
             {
-                int err = 0;
-                err = close(pipes[i]);
-                if (err != 0)
-                {
-                    REPORT_ERR("pipe closing failed");
-                    return; // or break?
-                }
+                REPORT_ERR("Couldn't close infile on cleanup");
             }
-
-            break;
+            if (out_fd != -2 && close(out_fd) == -1)
+            {
+                REPORT_ERR("Couldn't close outfile on cleanup");
+            }
+            wait_for_children(child_pids, i);
+            return;
         }
         if (child_pid == 0) // am child
         {
-            if (cmds->num_commands != 1)
-            {                   
-                // Set up redirects
-                if (i == 0) // am first child
+            // Set up redirects
+            if (i == 0) // am first child
+            {
+                // redirect from file_in
+                if (in_fd != -2)
                 {
-                    int desc;
-                    
-                    // write using stdout
-                    dup2(pipes[i][1], STDOUT_FILENO);
-
-                    // redirect to file_in
-                    if (cmds->file_in != NULL)
-                    {
-                        desc = open(cmds->file_in);
-
-                        if (desc != 0)
-                        {
-                            REPORT_ERR("open failed");
-                        }
-
-                        dup2(desc, STDIN_FILENO);
-                    }
+                    dup2(in_fd, STDIN_FILENO);
                 }
-                if (i == cmds->num_commands - 1) // am last child
+            }
+            if (i == cmds->num_commands - 1) // am last child
+            {
+                // redirect to file out
+                if (out_fd != -2)
                 {
-                    int desc;
-
-                    // read using stdin       
-                    dup2(pipes[i-1][0], STDIN_FILENO);
-    
-                    // redirect to file out
-                    if (cmds->file_out != NULL)
-                    {
-                        desc = open(cmds->file_out);
-
-                        if (desc != 0)
-                        {
-                            REPORT_ERR("open failed");
-                        }
-                        dup2(desc, STDOUT_FILENO);
-                    }
+                    dup2(out_fd, STDOUT_FILENO);
                 }
-                else // if at any other position
-                {
-                    // both read and write
-                    // no redirects
-                    dup2(pipes[i-1][0], STDOUT_FILENO);
-                    dup2(pipes[i][1], STDIN_FILENO);
-                }
+            }
+            // piping!
+            if (i != 0)
+            {
+                dup2(pipes[i-1][0], STDIN_FILENO);
+            }
+            if (i != cmds->num_commands - 1)
+            {
+                dup2(pipes[i][1], STDOUT_FILENO);
             }
 
             // And run
-            execlp();
+            execvp(cmds->commands[i][0], cmds->commands[i]);
               // children should never ever get here
             // check for failure
             // halp halp what do
@@ -475,24 +506,16 @@ void exec_commands_list(parsed_commands *cmds, int (*pipes)[2])
     // Only the command line gets here
     // Wait for all the children to finish, then return
 
-    int i;
-    for (i = 0; i < cmds->num_commands; i++)
+    wait_for_children(child_pids, cmds->num_commands);
+    close_pipes(pipes, cmds->num_commands - 1);
+    if (in_fd != -2 && close(in_fd) == -1)
     {
-        int w;
-        w = waitpid(child_pids[i]);
-        if (w != child_pids[i])
-        {
-            REPORT_ERR("wait failed");
-        }
+        REPORT_ERR("Couldn't close infile on cleanup");
     }
-   
-    int err = 0;
-    err = close(pipes[i]);
-    if (err != 0)
+    if (out_fd != -2 && close(out_fd) == -1)
     {
-        REPORT_ERR("pipe closing failed");
-        return; // or break?
+        REPORT_ERR("Couldn't close outfile on cleanup");
     }
 }
- 
+
 
