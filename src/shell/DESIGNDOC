@@ -9,11 +9,11 @@
 >> Fill in the names and email addresses of your group members.
 
 Kyle Seipp kseipp@caltech.edu
-Bianca Ray-Avalani LastName <email@domain.example>
+Bianca Ray Avalani <brayaval@caltech.edu>
 Henry Elbaum helbaum@caltech.edu
 
 >> Specify how many late tokens you are using on this assignment:
-0
+1
 
 >> What is the Git repository and commit hash for your submission?
    (You only need to include the commit-hash in the file you submit
@@ -45,8 +45,9 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
-Henry: ~~10
+Henry: ~14
 Kyle: 10
+Bianca: ~11
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -54,6 +55,7 @@ Kyle: 10
 Henry: Piping and forking algorithm, helping build parser
 Kyle: Parsing the strings. Stripping whitespace and putting the tokens
 into the parsed command struct.
+Bianca: Piping, child spawning, and redirection, freeing parsed commands, command execution
 
 ---- DATA STRUCTURES ----
 Tokens are space/pipe/inequality symbols/null character delimited substrings
@@ -77,21 +79,13 @@ typedef struct
 >> command "a arg1 arg2 | b arg1 | c arg1 arg2 arg3".  How does your
 >> shell internally represent such a command?
 
-Parsing consists of building a parsed_commands object. It starts by building
-members of the object by shoving tokens into object.commands[0] until a
+Parsing consists of building a parsed_commands object. It starts by building members of the object by shoving tokens into object.commands[0] until a
 subcommand delimiter comes up (resulting in something like
 object.commands[0] = ["a", "arg1", "arg2"]). Then a new subcommand 
 is made, which ends up as ["b", "arg1"]. And finally a new subcommand is
 made as ["c", "arg1", "arg2", "arg3"]. Then our end of input character is
 found, we put NULL into the file_in and file_out parts, and set num_commands=3.
-Then when it comes to execing, 2 pipes are made, and we loop over the number
-of processes, spawning a child with each iteration. The children grab the
-file descriptors they want from the pipes they want and put them into stdin
-and stdout, and then exec. The shell then gets to the end of the for loop
-(none of the children do since execing doesn't return), where it waits for
-the children to finish up, then closes all the pipes, and then asks for a new
-command
-
+Then when it comes to execing, 2 pipes are made, and we loop over the number of processes, spawning a child with each iteration. The children grab the file descriptors they want from the pipes they want and put them into stdin and stdout, and then exec. The shell then gets to the end of the for loop (none of the children do since execing doesn't return), where it waits for the children to finish up, then closes all the pipes, and then asks for a new command
 
 
 >> A2: Now, given the command:
@@ -168,7 +162,7 @@ we wouldn't get that effect on the shell
 >> A8: Why did you ultimately choose this design?  In what ways is it
 >> superior to other designs you considered as you developed your solution?
 
-The main other design idea considered involved making a chain of children, each
+The main other design idea we considered involved making a chain of children, each
 descended from the one before. The problem of waiting for grandchildren being
 impossible was to be solved by making a pipe to the shell process through which
 it could be told the pids of all the children, and once it got the right number
