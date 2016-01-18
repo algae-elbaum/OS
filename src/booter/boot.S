@@ -45,29 +45,27 @@ boot_start:
 	call	print_str
 
 	#---------------------------------------------------------------------
-	# TODO:  Load the remainder of the program into memory using int 13h
-	#        "Extended Read Operation."  If it fails, jump to boot_fail.
-	#
-	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.
+	#  Load the remainder of the program into memory using int 13h
+    #  "Extended Read Operation."  If it fails, jump to boot_fail.
 	#---------------------------------------------------------------------
     # Build DAP:
     # We're in 16 bit mode, so stack pushes are 2 bytes
     # Starting index of sectors to read using lba (8 byte member):
-    push $0x0001 # little endian 1               <<<----- this sector and offset is probably right but I'm
-    push $0x0000                                        # not actually sure
+    push $0x0000                                        
     push $0x0000
     push $0x0000
+    push $0x0001 # little endian 1
     # Segment offset of buffer to recieve data (4 byte member)
-    push $0x0000 # 0
+    push $0x2000
     push $0x0000
     # Number of 512-byte sectors to read (2 byte member)
     push $0x0800 # 2048 to just read in entire 1 MiB
     # Unused/Size of packet (1 byte member and then another 1 byte member)
-    push $0x1000 # 0 and then 16, being careful about little endianness
+    push $0x0010 # 0 and then 16, being careful about little endianness
    
     # Set up and issue int 13
     mov $0x42, %ah
-    mov %sp, %ds:(%si)   # Put DAP address in %ds:%si <<<----- this line is questionable
+    mov %sp, %si   # Put DAP address in %ds:%si
     int $0x13
     jb boot_fail   # Should jump if CF=1, which indicates failure
 
@@ -107,7 +105,7 @@ start_protected:
 	#            the boot-loader.  You will need to write it like this,
 	#            since we are still in 16-bit real mode:
 	#
-	data32 addr32 lgdt gdtdesc  # Is this right? what's going on
+	data32 addr32 lgdt gdtdesc
 	#
 	#            (We need a data32 prefix to ensure that all 32 bits of
 	#            the GDT descriptor are loaded; default is to load only
@@ -122,7 +120,7 @@ start_protected:
 	#            it back.
     mov %cr0, %eax
     or $CR0_PE, %eax
-    mov %eax, %cr0    
+    mov %eax, %cr0
 	#            You should use the constants in the boot.h header file
 	#            for this step, to make your code more readable.
 	#
@@ -130,7 +128,7 @@ start_protected:
 	#        overview.  (We only do the parts that are relevant to our
 	#        needs in this project!)
 	#---------------------------------------------------------------------
-
+    sti
 	# We're now in protected mode, but still in a 16-bit segment.  The
 	# CPU still has the real-mode code segment cached in %cs's segment
 	# descriptor.  We need to reload %cs, and the easiest way is to use a
@@ -180,7 +178,9 @@ call_c_entry:
 	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.  (FEEL
 	#        FREE TO INCORPORATE ANY OF THE ABOVE COMMENTS INTO YOUR CODE!)
 	#---------------------------------------------------------------------
-
+    mov $PROGRAM_BASE_ADDR, %eax
+    add $24, %eax
+    call *%eax
 	#=====================================================================
 	# The rest of this file contains helper functions for the 16-bit
 	# portion of the bootloader, so switch back to 16-bit code generation.
