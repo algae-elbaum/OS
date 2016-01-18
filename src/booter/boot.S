@@ -50,6 +50,26 @@ boot_start:
 	#
 	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.
 	#---------------------------------------------------------------------
+    # Build DAP:
+    # We're in 16 bit mode, so stack pushes are 2 bytes
+    # Starting index of sectors to read using lba (8 byte member):
+    push $0x0001 # little endian 1               <<<----- this sector and offset is probably right but I'm
+    push $0x0000                                        # not actually sure
+    push $0x0000
+    push $0x0000
+    # Segment offset of buffer to recieve data (4 byte member)
+    push $0x0000 # 0
+    push $0x0000
+    # Number of 512-byte sectors to read (2 byte member)
+    push $0x0800 # 2048 to just read in entire 1 MiB
+    # Unused/Size of packet (1 byte member and then another 1 byte member)
+    push $0x1000 # 0 and then 16, being careful about little endianness
+   
+    # Set up and issue int 13
+    mov $0x42, %ah
+    mov %sp, %ds:(%si)   # Put DAP address in %ds:%si <<<----- this line is questionable
+    int $0x13
+    jb boot_fail   # Should jump if CF=1, which indicates failure
 
 	mov	$STR_LOADED, %si
 	call	print_str
@@ -63,6 +83,7 @@ boot_start:
 	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.
 	#        (OR IF YOU DECIDE YOU DON'T WANT TO PUT ANYTHING HERE.)
 	#---------------------------------------------------------------------
+# Do we want to change the video mode or something here?
 
 	#=====================================================================
 	# Next, set up for transition from 16-bit real mode to 32-bit
@@ -73,20 +94,20 @@ boot_start:
 start_protected:
 
 	#---------------------------------------------------------------------
-	# TODO:  Switch from real mode into protected mode.  The process is
-	#        straightforward:
+	#  Switch from real mode into protected mode.  The process is
+	#  straightforward:
 	#
 	#        1)  Disable interrupts, since any interrupt during this
 	#            process would demolish us.  (We don't turn interrupts
 	#            back on until we are safely in our C program, and have
 	#            set up an Interrupt Descriptor Table.)
-	#
+    cli	
 	#        2)  Set the Global Descriptor Table Register (GDTR) to our
 	#            simple Global Descriptor Table specified at the end of
 	#            the boot-loader.  You will need to write it like this,
 	#            since we are still in 16-bit real mode:
 	#
-	#            data32 addr32 lgdt gdtdesc
+	data32 addr32 lgdt gdtdesc  # Is this right? what's going on
 	#
 	#            (We need a data32 prefix to ensure that all 32 bits of
 	#            the GDT descriptor are loaded; default is to load only
@@ -99,16 +120,15 @@ start_protected:
 	#            need it!  Also, you should not modify any other bits in
 	#            cr0:  read it, OR in the appropriate bit(s), then write
 	#            it back.
-	#
+    mov %cr0, %eax
+    or $CR0_PE, %eax
+    mov %eax, %cr0    
 	#            You should use the constants in the boot.h header file
 	#            for this step, to make your code more readable.
 	#
 	#        See also IA32 Manual Volume 3A, Section 8.9.1 for the general
 	#        overview.  (We only do the parts that are relevant to our
 	#        needs in this project!)
-	#
-	#        REMOVE THIS COMMENT BLOCK WHEN YOU WRITE THIS CODE.  (FEEL
-	#        FREE TO INCORPORATE ANY OF THE ABOVE COMMENTS INTO YOUR CODE!)
 	#---------------------------------------------------------------------
 
 	# We're now in protected mode, but still in a 16-bit segment.  The
