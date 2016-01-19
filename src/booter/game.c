@@ -8,6 +8,10 @@ void c_start(void) {
      */
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
-    while (1) {}
+    unsigned char * vga = (unsigned char *) 0xB8000;
+    char c = 'a';
+    while (1) 
+    {
+    }
 }
 
