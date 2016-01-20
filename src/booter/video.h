@@ -24,6 +24,7 @@
 
 
 void init_video(void);
+void write_string(int colour, const char *string);
 
 
 #endif /* VIDEO_H */

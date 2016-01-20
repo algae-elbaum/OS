@@ -36,12 +36,74 @@
  *        so that nothing gets mangled...
  */
 
+typedef struct 
+{
+    unsigned char payload;
+    node * next;
+} node;
+
+ typedef struct
+{
+    node *head;
+    node *tail;
+    int curr_entries;
+    int max_entries;
+
+} circular_queue;
+
+void push_queue(unsigned char payload, circular_queue queue)
+{
+    if (queue->curr_entries == queue->max_entries)
+    {
+        queue->head = queue->head->next;
+    }
+    queue->tail = queue->tail->next;
+    queue->tail->payload = payload;
+    queue->tail->next = NULL;
+    queue->curr_entries += 1;
+    if (queue->curr_entries == queue->max_entries)
+    {
+        queue->tail->next = queue->head;
+    }
+}
+
+unsigned char pop_queue(circular_queue queue)
+{
+    unsigned char ans = queue->head->payload;
+    queue->head = queue->head->next;
+    queue->curr_entries -= 1;
+    //do we have to deallocate this memory or something?
+    return ans;
+}
+
+circular_queue * init_queue()
+{
+    circular_queue * ans = malloc(sizeof(circular_queue));
+    ans->curr_entries = 0;
+    ans->max_entries = 100;
+    ans->head = malloc(sizeof(node));
+    ans->tail = malloc(sizeof(node));
+    return ans;
+}
+
 
 void init_keyboard(void) {
+    disable_interrupts();
     /* TODO:  Initialize any state required by the keyboard handler. */
-
+    outb(KEYBOARD_PORT, 0xF2) // This let's us identify the keyboard. Probably isn't necessary
+    // Probably should initialize a circular queue for the keyboard buffer thingamaboberabob
+    circular_queue * keyboard_queue = init_queue();
     /* TODO:  You might want to install your keyboard interrupt handler
      *        here as well.
      */
+     // What does that mean?
+     while(1)
+     {
+        enable_interrupts();
+        unsigned char scan_code = inb(KEYBOARD_PORT);
+        disable_interrupts();
+        push_queue(scan_code, keyboard_queue);
+        enable_interrupts();
+     }
 }
 

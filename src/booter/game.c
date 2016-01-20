@@ -1,5 +1,5 @@
 /* This is the entry-point for the game! */
-#define VIDEO_BUFFER ((void *) 0xB8000)
+#include "video.h"
 
 void c_start(void) {
     /* TODO:  You will need to initialize various subsystems here.  This
@@ -10,16 +10,10 @@ void c_start(void) {
      */
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
-    unsigned char * vga = (unsigned char *) 0xB8000;
     unsigned char c = 'a';
-    int i;
-    for (i = 0; i < 1024; i++, c++)
+    while (1) 
     {
-         *(char*)vga = c;
-         *(char*)(++vga) = (char)10;
-    }
-        while (1) 
-    {
+        write_string(RED, "Hello World!");
     }
 }
 

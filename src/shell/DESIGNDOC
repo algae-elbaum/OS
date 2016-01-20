@@ -19,8 +19,9 @@ Henry Elbaum helbaum@caltech.edu
    (You only need to include the commit-hash in the file you submit
    on Moodle.)
 
-   Repository URL:
-   commit ...
+   Repository URL: login.cms.caltech.edu:/cs/courses/cs124/teams/ComedicLuddites
+   commit c2feea6970a705daac8a2779e685517aea6c90b0
+
 
 ---- PRELIMINARIES ----
 
@@ -29,6 +30,8 @@ Henry Elbaum helbaum@caltech.edu
 
 Multiline commands as long as each line ends with a "\" character
 History and up arrow to get previous commands works (readline libary)
+
+Is this what you meant by repository url?
 
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
