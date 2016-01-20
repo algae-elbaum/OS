@@ -44,7 +44,7 @@ void write_string( int colour, const char *string )
 }
 void write_char(int color, const char letter,int x, int y)
 {
-    int screen_width = 5; // what is it actually?
+    int screen_width = 71; // what is it actually?
     int pos = x + y * screen_width;
     *VIDEO_BUFFER + pos = letter;
     *VIDEO_BUFFER + pos + 1 = color;
