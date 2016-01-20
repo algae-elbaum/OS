@@ -1,4 +1,7 @@
+#include "keyboard.h"
+#include "video.h"
 #include "ports.h"
+#include "interrupts.h"
 
 /* This is the IO port of the PS/2 controller, where the keyboard's scan
  * codes are made available.  Scan codes can be read as follows:
@@ -22,7 +25,7 @@
  * See http://wiki.osdev.org/PS/2_Keyboard for details.
  */
 #define KEYBOARD_PORT 0x60
-
+#define QUEUE_SIZE 100
 
 /* TODO:  You can create static variables here to hold keyboard state.
  *        Note that if you create some kind of circular queue (a very good
@@ -36,74 +39,62 @@
  *        so that nothing gets mangled...
  */
 
-typedef struct 
+typedef struct
 {
-    unsigned char payload;
-    node * next;
-} node;
-
- typedef struct
-{
-    node *head;
-    node *tail;
+    unsigned char *head;
+    unsigned char *tail;
     int curr_entries;
     int max_entries;
 
 } circular_queue;
 
-void push_queue(unsigned char payload, circular_queue queue)
+unsigned char queue_array[QUEUE_SIZE]; // Yay static allocation
+circular_queue queue = {queue_array, queue_array, 0, QUEUE_SIZE};
+
+// Incrementing for pointers in the circular queue
+void circular_ptr_inc(unsigned char **ptr)
 {
-    if (queue->curr_entries == queue->max_entries)
+    *ptr += (*ptr == queue_array + QUEUE_SIZE - 1) ? 1 - QUEUE_SIZE : 1;
+}
+
+/*** We should disable interrupts while using the queue, but for now doing that seems
+     to just make the program crash ***/
+
+// We drop the newest keystrokes in favor of keeping the oldest
+// (not that it matters. this is chess, not speed typing)
+void push_queue(unsigned char payload)
+{
+    if (queue.curr_entries == queue.max_entries)
     {
-        queue->head = queue->head->next;
+        return;
     }
-    queue->tail = queue->tail->next;
-    queue->tail->payload = payload;
-    queue->tail->next = NULL;
-    queue->curr_entries += 1;
-    if (queue->curr_entries == queue->max_entries)
+    *(queue.tail) = payload;
+    circular_ptr_inc(&(queue.tail));
+    queue.curr_entries++;
+}
+
+unsigned char pop_queue()
+{   
+    if (queue.head == queue.tail)
     {
-        queue->tail->next = queue->head;
+        write_string(LIGHT_GREEN, "Hello World!");
+        return 'q'; // Temporary, will actually spin waiting for a key
     }
+    unsigned char result = *(queue.head);
+    circular_ptr_inc(&(queue.head));
+    queue.curr_entries--;
+    return result;
 }
 
-unsigned char pop_queue(circular_queue queue)
+void init_keyboard(void) 
 {
-    unsigned char ans = queue->head->payload;
-    queue->head = queue->head->next;
-    queue->curr_entries -= 1;
-    //do we have to deallocate this memory or something?
-    return ans;
-}
-
-circular_queue * init_queue()
-{
-    circular_queue * ans = malloc(sizeof(circular_queue));
-    ans->curr_entries = 0;
-    ans->max_entries = 100;
-    ans->head = malloc(sizeof(node));
-    ans->tail = malloc(sizeof(node));
-    return ans;
-}
-
-
-void init_keyboard(void) {
     disable_interrupts();
     /* TODO:  Initialize any state required by the keyboard handler. */
-    outb(KEYBOARD_PORT, 0xF2) // This let's us identify the keyboard. Probably isn't necessary
+    outb(KEYBOARD_PORT, 0xF2); // This let's us identify the keyboard. Probably isn't necessary
     // Probably should initialize a circular queue for the keyboard buffer thingamaboberabob
-    circular_queue * keyboard_queue = init_queue();
     /* TODO:  You might want to install your keyboard interrupt handler
      *        here as well.
      */
      // What does that mean?
-     while(1)
-     {
-        enable_interrupts();
-        unsigned char scan_code = inb(KEYBOARD_PORT);
-        disable_interrupts();
-        push_queue(scan_code, keyboard_queue);
-        enable_interrupts();
-     }
 }
 
