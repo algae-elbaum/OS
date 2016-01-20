@@ -59,7 +59,7 @@ boot_start:
     push $0x2000
     push $0x0000
     # Number of 512-byte sectors to read (2 byte member)
-    push $0x0800 # 2048 to just read in entire 1 MiB
+    push $0x04c0 # Max size before hitting video buffer (and after that other important stuff??)
     # Unused/Size of packet (1 byte member and then another 1 byte member)
     push $0x0010 # 0 and then 16, being careful about little endianness
    
@@ -128,7 +128,6 @@ start_protected:
 	#        overview.  (We only do the parts that are relevant to our
 	#        needs in this project!)
 	#---------------------------------------------------------------------
-    sti
 	# We're now in protected mode, but still in a 16-bit segment.  The
 	# CPU still has the real-mode code segment cached in %cs's segment
 	# descriptor.  We need to reload %cs, and the easiest way is to use a
@@ -180,7 +179,7 @@ call_c_entry:
 	#---------------------------------------------------------------------
     mov $PROGRAM_BASE_ADDR, %eax
     add $24, %eax
-    call *%eax
+    call *(%eax)
 	#=====================================================================
 	# The rest of this file contains helper functions for the 16-bit
 	# portion of the bootloader, so switch back to 16-bit code generation.
