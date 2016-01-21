@@ -1,5 +1,6 @@
 /* This is the entry-point for the game! */
 #include "video.h"
+#define TIMER_START_TIME 18000 // Half hour of play is on the timer
 
 // Gotta write Chess or something
 // so we need an 8x8 board that needs to store data, so maybe store 
@@ -22,6 +23,9 @@ typedef struct
 } location;
 
 piece board[8][8]; // row, col
+int timer_1 = TIMER_START_TIME;
+int timer_2 = TIMER_START_TIME;
+typedef enum{ONE, TWO, OFF} timer_state;
 
 void init_board()
 {
@@ -154,11 +158,11 @@ void print_board()
     }
 }
 
-void print_prompt(_Bool color)
+void print_prompt(char color)
 {
     int i;
     char *temp;
-    if (color)
+    if (color == LIGHT_BLUE)
     {
         temp = "Player 1";
         /* code */
@@ -167,30 +171,11 @@ void print_prompt(_Bool color)
     {
         temp = "Player 2";
     }
-    for (i = 0; i < 8; ++i)
-    {
-        write_char(CYAN, BLACK, temp[i], i, 11);
-    }
-    temp = "Start Row:";
-    for (i = 0; i <10; ++i)
-    {
-        write_char(CYAN, BLACK, temp[i], i, 12);
-    }
-    temp = "Start Col:";
-    for (i = 0; i < 10; ++i)
-    {
-        write_char(CYAN, BLACK, temp[i], i, 13);
-    }
-    temp = "Stop Row:";
-    for (i = 0; i <10; ++i)
-    {
-        write_char(CYAN, BLACK, temp[i], i, 14);
-    }
-    temp = "Stop Col:";
-    for (i = 0; i < 10; ++i)
-    {
-        write_char(CYAN, BLACK, temp[i], i, 15);
-    }
+    write_string(CYAN, BLACK, temp, 0, 11);
+    write_string(CYAN, BLACK, "Start Row:", 0, 12);
+    write_string(CYAN, BLACK, "Start Col:", 0, 13);
+    write_string(CYAN, BLACK, "Stop Row:", 0, 14);
+    write_string(CYAN, BLACK, "Sttop Col:", 0, 15);
 }
 
 location * bishop_path(location start, location stop, location * ans)
@@ -288,6 +273,48 @@ location * rook_path(location start, location stop, location * ans)
     return ans;
 }
 
+_Bool check_check(char color)
+{
+    // This checks if color is CHECKING the other color.
+    int i,j;
+    _Bool ans= 0;
+    location king_pos;
+    for (i = 0; i < 8; ++i)
+    {
+        for (j = 0; j < 8; ++j)
+        {
+            if (board[i][j].class == KING && board[i][j].color != color)
+            {
+                king_pos.x = i;
+                king_pos.y = j;
+            }
+        }
+    }
+    for (i = 0; i < 8; ++i)
+    {
+        for (j = 0; j < 8; ++j)
+        {
+            if (board[i][j].color == color)
+            {
+                // If valid move from [i][j] to kingpos
+                // then set ans to 1
+                ans = 0; // REMOVE THIS. just wanted to put something in this if block
+            }
+        }
+    }
+    return ans;
+}
+
+void print_timers()
+{
+    /* Print out the timer labels */
+    write_string(CYAN, BLACK, "Player One Timer:", 20, 0);
+    write_string(CYAN, BLACK, "Player Two Timer:", 20, 5);
+}
+
+/* Not sure how to do anything having to do with printing the numbers for the timer
+and making it decrease */
+
 void c_start(void) {
     /* TODO:  You will need to initialize various subsystems here.  This
      *        would include the interrupt handling mechanism, and the various
@@ -301,6 +328,11 @@ void c_start(void) {
     init_board();
     print_board();
     print_prompt(0);
+
+    // Somewhere after move one, we need to say that the timer is now 
+    // belgoning to Green. Use the timer_state enum
+    // there is an off state provded for when the first move hasn't been played yet
+
 
     while (1) 
     {
