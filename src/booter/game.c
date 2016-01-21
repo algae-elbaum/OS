@@ -260,7 +260,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
             return 0;
         default:
             write_string(RED, BLACK, 
-                "iinvalud move", 0, 20);
+                "invalid move", 0, 20);
             return 0;
     }
 }
