@@ -131,7 +131,7 @@ void move_piece(location start, location stop)
 
 // checks if a move is legal, given a starting and ending position
 // note: blue side always moves first
-bool is_legal_move(int x1, int y1, int x2, int y2)
+int is_legal_move(int x1, int y1, int x2, int y2)
 {
     // if end move is start move, print error and return
     if (x1 == x2 && y1 = y2)
