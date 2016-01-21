@@ -12,7 +12,7 @@
 #
 #        Handlers generally must follow this pattern:
 #
-.globl _handle_timer_interrupt
+.globl _timer_handler
 .globl _handle_key_interrupt
 
 .align 4
@@ -24,7 +24,7 @@ irq0_handler:  # For the timer
 
     # Call c fun
     # No need to save any registers, just call
-    # gonna need a function to call here, should take care of merging first
+    call timer_handler
 
     # Acknowledge the interrupt so that the PIC will send more
     # interrupts!  We do this by sending 0x20 to port 0x20.

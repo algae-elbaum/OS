@@ -1,6 +1,8 @@
+
 #include "timer.h"
 #include "ports.h"
 #include "handlers.h"
+#include "game.h"
 
 /*============================================================================
  * PROGRAMMABLE INTERVAL TIMER
@@ -34,6 +36,7 @@
 /* Frequency of the PIT's input clock. */
 #define PIT_FREQ 1193182
 
+
 /* Ports for the Programmable Interval Timer (PIT). */
 #define PIT_CHAN0_DATA 0x40
 #define PIT_CHAN1_DATA 0x41
@@ -47,6 +50,16 @@
  *        compiler knows they can be changed by exceptional control flow.
  */
 
+void timer_handler()
+{
+    static int counter = 0;
+    counter ++;
+    if(counter == 1193182)
+    {
+        counter = 0;
+        decrement_timer();
+    }
+}
 
 void init_timer(void) {
 
@@ -55,7 +68,7 @@ void init_timer(void) {
 
     /* Tell channel 0 to trigger 100 times per second.  The value we load
      * here is a divider for the 1193182 Hz timer.  1193182 / 100 ~= 11932.
-     * 11932 = 0x2e9c.
+     * 11932 = 0x2e9c.  
      *
      * Always write the low byte first, then high byte second.
      */
@@ -64,8 +77,5 @@ void init_timer(void) {
 
     /* TODO:  Initialize other timer state here. */
 
-    /* TODO:  You might want to install your timer interrupt handler
-     *        here as well.
-     */
     install_interrupt_handler(0x20, irq0_handler);
 }

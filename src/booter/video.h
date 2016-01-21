@@ -24,7 +24,7 @@
 
 
 void init_video(void);
-void write_string(int colour, const char *string);
+void write_string(char str_color, char back_color, const char * letters, int x, int y);
 void write_char(char char_color, char back_color, const char letter,int x, int y);
 void clear_screen();
 

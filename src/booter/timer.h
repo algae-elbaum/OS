@@ -3,6 +3,7 @@
 
 
 void init_timer(void);
+void timer_handler();
 
 
 #endif /* TIMER_H */

@@ -41,14 +41,17 @@ void init_video()
 {
     clear_screen();  
 }
-void write_string( int colour, const char *string )
+void write_string(char str_color, char back_color, const char * letters, int x, int y)
 {
-    /* From the OS wiki */
-    volatile char *video = (volatile char*) VIDEO_BUFFER;
-    while( *string != 0 )
+    /* Now, we cam write to a string starting at x,y. Note that this will wrap around
+     if the string is too long. */ 
+    int i = 0;
+    char temp =letters[0];
+    while(temp != '\0')
     {
-        *video++ = *string++;
-        *video++ = colour;
+        write_char(str_color, back_color, temp, x+i, y);
+        i ++;
+        temp = letters[i];
     }
 }
 void write_char(char char_color, char back_color, const char letter,int x, int y)

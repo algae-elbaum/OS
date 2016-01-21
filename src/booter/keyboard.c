@@ -82,7 +82,7 @@ unsigned char pop_queue()
     if (queue.head == queue.tail)
     {
         enable_interrupts();
-        return '\0'; // Temporary, will actually spin waiting for a key
+        return '\0'; 
     }
     unsigned char result = *(queue.head);
     circular_ptr_inc(&(queue.head));
@@ -127,6 +127,10 @@ unsigned char key_map(unsigned char scancode)
             return 'm';
         case 0x1F:
             return 's';
+        case 0x5A:
+            return '\n'; // return carriage
+        case 0x0E:
+            return '\b'; // Backspace
         default: 
             return '\0';
     }
