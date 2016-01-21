@@ -129,6 +129,144 @@ void move_piece(location start, location stop)
     board[x_1][y_1].class = NONE;
 }
 
+// checks if a move is legal, given a starting and ending position
+// note: blue side always moves first
+bool is_legal_move(int x1, int y1, int x2, int y2)
+{
+    // if end move is start move, print error and return
+    if (x1 == x2 && y1 = y2)
+    {
+        write_string(RED, BLACK, "invalid input, end location is same as start\n", 20, 0);
+        return 0;
+    }
+    // if end move is off the board, print error and return
+    if ((x1 < 0 || x1 > 8) || (x2 < 0 || x2 > 8) || (y1 < 0 || y1 > 8) || (y2 < 0 || y2 > 8))
+    {
+        write_string(RED, BLACK, "invalid input, end location is off the board\n", 20, 0);
+        return 0;
+    }
+    switch(board[x1][y1].class)
+    {
+        case PAWN:
+            // if in starting row, can move 2 or 1 spaces
+        // if forward diagonals 1 unit away are occupied, can move there
+        // else can move 1 space fwd
+            if (board[x1][y1].color = LIGHT_BLUE)
+            {
+                if (x1 == 1 && (x2 == 2 || x2 == 3)) // if in starting row
+                {
+                    return 1;
+                }
+                else if (x2 == x1 + 1 && y2 = y1) // normal case
+                {
+                    return 1;
+                }
+                // if attacking
+                else if (board[x2][y2].class != NONE && 
+                    x2 == x1 + 1 && (y2 == y1 + 1 || y2 == y1 - 1))
+                {
+                    return 1;
+                }
+                // all other cases (invalid move)
+                else
+                {
+                    return 0;
+                }
+            }
+            // if green, things go the other direction
+            else if (board[x1][y1].color = GREEN)
+            {
+                if (x1 == 7 && (x2 == 6 || x2 == 5)) // if in starting row
+                {
+                    return 1;
+                }
+                else if (x2 == x1 - 1 && y2 = y1) // normal case
+                {
+                    return 1;
+                }
+                // if attacking
+                else if (board[x2][y2].class != NONE && 
+                    x2 == x1 - 1 && (y2 == y1 + 1 || y2 == y1 - 1))
+                {
+                    return 1;
+                }
+                // all other cases (invalid move)
+                else 
+                {
+                    return 0;
+                }
+            }
+            break;
+
+        case BISHOP:
+        // if position is on either diagonal from starting pos, is legal
+        // if slope between desired and start is 1, is on diagonal
+            if ((y2 - y1) == (x2 - x1) || (y2 - y1) == -(x2 - x1))
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+
+        case KNIGHT:
+        // moves in Ls, valid locs just listed
+            if ((y2 == y1 + 2 && (x2 == x1 + 1 || x2 == x1 - 1)) || 
+                (y2 == y1 - 2 && (x2 == x1 + 1 || x2 == x1 - 1)) || 
+                (x2 == x1 + 2 && (y2 == y1 + 1 || y2 == y1 - 1)) ||
+                (x2 == x1 - 2 && (y2 == y1 + 1 || y2 == y1 - 1)))
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+            break;
+
+        case ROOK:
+        // if position is in straight line from starting position, is legal
+        // i.e. if same x or y value
+            if (x2 == x1 || y2 == y1)
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+            break;
+
+        case QUEEN:
+        // can move on diagonals or straight lines (bishops + rook movement)
+        if ((y2 - y1) == (x2 - x1) || (y2 - y1) == -(x2 - x1) || (x2 == x1 || y2 == y1))
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+
+        case KING:
+        // 1 square in any direction, including diagonals
+            if ((y1 - y2 > -2 || y1 - y2 < 2) && (x1 - x2 > -2 || x1 - x2 < 2))
+            {
+                return 1;
+            }
+            else
+            {
+                return 0;
+            }
+
+        default:
+            write_string(RED, BLACK, 
+                "this piece does not have a valid class or does not exist\n", 20, 0);
+            return 0;
+    }
+}
+
 void print_board()
 {
     /* Prints the board to screen 
@@ -205,6 +343,7 @@ void bishop_path(location start, location stop, location * ans)
         {
             i --;
         }
+
         if (y_dir > 0)
         {
             j ++;

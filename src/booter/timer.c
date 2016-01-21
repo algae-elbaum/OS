@@ -1,3 +1,4 @@
+
 #include "timer.h"
 #include "ports.h"
 
@@ -33,6 +34,7 @@
 /* Frequency of the PIT's input clock. */
 #define PIT_FREQ 1193182
 
+
 /* Ports for the Programmable Interval Timer (PIT). */
 #define PIT_CHAN0_DATA 0x40
 #define PIT_CHAN1_DATA 0x41
@@ -54,7 +56,7 @@ void init_timer(void) {
 
     /* Tell channel 0 to trigger 100 times per second.  The value we load
      * here is a divider for the 1193182 Hz timer.  1193182 / 100 ~= 11932.
-     * 11932 = 0x2e9c.
+     * 11932 = 0x2e9c.  
      *
      * Always write the low byte first, then high byte second.
      */
@@ -66,4 +68,6 @@ void init_timer(void) {
     /* TODO:  You might want to install your timer interrupt handler
      *        here as well.
      */
+
+     // helper functions: sleep, egg timer (tell me after n seconds have passed)
 }
