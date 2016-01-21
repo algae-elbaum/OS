@@ -130,7 +130,10 @@ void move_piece(location start, location stop)
     board[y_1][x_1].symbol='_';
     board[x_1][y_1].class = NONE;
 }
-
+void clear_error()
+{
+write_string(BLACK, BLACK, "________________________________________________", 0, 20);
+}
 // checks if a move is legal, given a starting and ending position
 // note: blue side always moves first
 int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
@@ -496,17 +499,28 @@ void c_start(void)
     }
     i = 0;
     print_timers();
+                char curr_color;
     while (1) // while both of the timers are above 0
     {
  print_board();
     print_prompt(0);
 
+                if(global_timer_state == TWO)
+                {
+                    curr_color = GREEN;
+                }
+                else
+                {
+                    curr_color = LIGHT_BLUE;
+                }
+ 		write_string(BLACK, curr_color, "____", 19,12);
 
         // print the board
         // pull from keyboard
         char curr_key = pop_queue();
-        write_char(RED, BLACK, 't', 30, 15);
+	if(curr_key != '\0'){
         // want to know what type of key do you get?
+		write_char(RED,BLACK, curr_key, 31, 16);
         switch(curr_key)
         {
             case '1':
@@ -517,31 +531,25 @@ void c_start(void)
             case '6':
             case '7':
             case '0':
+		if(i<4){
                 proposed_move[i] = curr_key - '0';
-                i ++;
                 write_char(CYAN, BLACK, curr_key, 12, 12+i);
+                i ++;}
+                clear_error();
 		break;
             case '\b':
                 proposed_move[i] = -1;
                 i --;
                 write_char(BLACK, BLACK, '_', 12, 12+i);
+		if (i < 0){i = 0;}
 		break;
             case '\n':
+		write_string(RED, BLACK, "Halphalp", 31, 15);
                 for (i = 0; i < 4; ++i)
                 {
                     write_char(BLACK, BLACK, '_', 12, 12+i);
                 }
                 i = 0;
-                char curr_color;
-                if(global_timer_state == TWO)
-                {
-                    curr_color = GREEN;
-                }
-                else
-                {
-                    curr_color = LIGHT_BLUE;
-                }
-		write_string(curr_color, BLACK, "Halphalp", 31, 15);
                 if (is_legal_move(proposed_move[0], proposed_move[1], proposed_move[2], proposed_move[3], curr_color))
                 {
                     location loc1;
@@ -552,6 +560,10 @@ void c_start(void)
                     loc2.y = proposed_move[3];
                     move_piece(loc1, loc2);
                     switch_turn();
+		    for(i=0;i<4;i++)
+			{
+			proposed_move[i] = -1;
+			}
                 }
             case '\0':
                 // do nothing
@@ -566,7 +578,7 @@ void c_start(void)
         // but that is something related to the timer
 
 
-   } print_board();
+   }} print_board();
     print_prompt(0);
 
 
