@@ -22,7 +22,7 @@ irq0_handler:        # According to the comments, the timer is irq1. argh
 
     # Call c fun
     # No need to save any registers, just call
-    call handle_timer_interrupt
+#    call handle_timer_interrupt
 
 
     # Acknowledge the interrupt so that the PIC will send more
@@ -44,7 +44,7 @@ irq1_handler:
 
     # Call c fun
     # No need to save any registers, just call
-    call handle_key_interrupt
+#    call handle_key_interrupt
 
     # Acknowledge the interrupt so that the PIC will send more
     # interrupts!  We do this by sending 0x20 to port 0x20.
