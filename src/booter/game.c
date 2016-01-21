@@ -470,11 +470,14 @@ void decrement_timer()
     if (global_timer_state == ONE)
     {
         timer_1 --;
+        write_string(CYAN, BLACK, "updated:", 20, 3);
     }
     if (global_timer_state == TWO)
     {
         timer_2 --;
+        write_string(CYAN, BLACK, "updated:", 20, 8);
     }
+    write_string(CYAN, BLACK, "timer decremented", 20, 10);
 }
 
 /* Not sure how to do anything having to do with printing the numbers for the timer
