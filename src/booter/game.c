@@ -448,9 +448,9 @@ void print_timers()
 {
     /* Print out the timer labels */
     write_string(CYAN, BLACK, "Player One Timer:", 20, 0);
-    write_int(CYAN, BLACK, timer_1, 20, 2);
+    write_int(CYAN, BLACK, timer_1, 20, 2, 7);
     write_string(CYAN, BLACK, "Player Two Timer:", 20, 5);
-    write_int(CYAN, BLACK, timer_2, 20, 7);
+    write_int(CYAN, BLACK, timer_2, 20, 7, 7);
 }
 
 void switch_turn()
@@ -509,6 +509,7 @@ void c_start(void)
  print_board();
     print_prompt();
 print_timers();
+decrement_timer();
 
                 if(global_timer_state == TWO)
                 {

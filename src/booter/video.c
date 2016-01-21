@@ -62,14 +62,25 @@ void write_char(char char_color, char back_color, const char letter,int x, int y
     *((char *)VIDEO_BUFFER + 2*pos) = letter;
     *((char *)VIDEO_BUFFER + 2*pos + 1) = color;
 }
-void write_int(char char_color, char back_color, int to_print, int x, int y)
+void write_int(char char_color, char back_color, int to_print, int x, int y, int length)
 {
     int i = 0;
-    while(to_print > 0)
+    int size = 0;
+    int temp = to_print;
+    while(temp > 0)
+	{
+	temp /= 10;
+        size ++;}
+    write_char(RED, BLACK, size + '0', 40, 0);
+    while(i < size)
     {
         write_char(char_color, back_color, (to_print % 10)+'0', x - i, y);
         to_print /= 10; 
         i ++;
     }
-
+    while(i < length)
+    {
+	write_char(back_color, back_color, '_', x-i,y);
+	i ++;
+    }
 }
