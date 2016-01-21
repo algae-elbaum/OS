@@ -181,14 +181,14 @@ void init_interrupts(void) {
     int i;
     for (i = 0; i < NUM_INTERRUPTS; ++i)
     {
-        interrupt_descriptor_table[i]->offset_15_0 = 0;
-        interrupt_descriptor_table[i]->selector = 0;
-        interrupt_descriptor_table[i]->zero = 0;
-        interrupt_descriptor_table[i]->type_attr = 0;
-        interrupt_descriptor_table[i]->offset_31_16 = 0;
+        interrupt_descriptor_table[i].offset_15_0 = 0;
+        interrupt_descriptor_table[i].selector = 0;
+        interrupt_descriptor_table[i].zero = 0;
+        interrupt_descriptor_table[i].type_attr = 0;
+        interrupt_descriptor_table[i].offset_31_16 = 0;
     }
 
-    lidt(*interrupt_descriptor_table, sizeof(interrupt_descriptor_table));
+    lidt(&interrupt_descriptor_table, sizeof(interrupt_descriptor_table));
 
     /* Remap the Programmable Interrupt Controller to deliver its interrupts
      * to 0x20-0x33 (32-45), so that they don't conflict with the IA32 built-
@@ -223,11 +223,12 @@ void install_interrupt_handler(int num, void *handler) {
      *        but its value isn't really relevant to us.
      */
 
-    interrupt_descriptor_table[num]->offset_15_0 = (int)(size_t) handler;// offset bits 0..15
-    interrupt_descriptor_table[num]->selector = (int)(size_t) handler + 15;// a code segment selector in GDT or LDT
-    interrupt_descriptor_table[num]->zero = 0; // unused, set to 0
-    interrupt_descriptor_table[num]->type_attr = 0;// descriptor type and attributes
-    interrupt_descriptor_table[num]->offset_31_16 = (int)(size_t) handler + 31 + 15; // offset bits 16..31
+    uint16_t *cast_handler = (uint16_t *) handler;
+    interrupt_descriptor_table[num].offset_15_0 = *cast_handler;// offset bits 0..15
+    interrupt_descriptor_table[num].selector = *(cast_handler + 1);// a code segment selector in GDT or LDT
+    interrupt_descriptor_table[num].zero = 0; // unused, set to 0
+    interrupt_descriptor_table[num].type_attr = 0;// descriptor type and attributes
+    interrupt_descriptor_table[num].offset_31_16 = *(cast_handler + 3); // offset bits 16..31
 }
 
 
