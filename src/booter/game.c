@@ -540,7 +540,16 @@ void c_start(void) {
                     write_char(BLACK, BLACK, '_', 12, 12+i);
                 }
                 i = 0;
-                if (is_legal_move(proposed_move[0], proposed_move[1], proposed_move[2], proposed_move[3]))
+                char curr_color;
+                if(global_timer_state == TWO)
+                {
+                    curr_color = GREEN;
+                }
+                else
+                {
+                    curr_color = LIGHT_BLUE;
+                }
+                if (is_legal_move(proposed_move[0], proposed_move[1], proposed_move[2], proposed_move[3], curr_color))
                 {
                     location loc1;
                     loc1.x = proposed_move[0];
