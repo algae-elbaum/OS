@@ -178,7 +178,7 @@ void print_prompt(char color)
     write_string(CYAN, BLACK, "Sttop Col:", 0, 15);
 }
 
-location * bishop_path(location start, location stop, location * ans)
+void bishop_path(location start, location stop, location * ans)
 {
     // determines which tiles a bishop would have had to go through 
     // in order to get here
@@ -217,9 +217,8 @@ location * bishop_path(location start, location stop, location * ans)
         ans[k] = temp;
         k ++;
     }
-    return ans;
 }
-location * rook_path(location start, location stop, location * ans)
+void rook_path(location start, location stop, location * ans)
 {
     // determines which tiles a rook would have had to go through 
     // in order to get here
@@ -270,7 +269,6 @@ location * rook_path(location start, location stop, location * ans)
             }
         }
     }
-    return ans;
 }
 
 _Bool check_check(char color)
