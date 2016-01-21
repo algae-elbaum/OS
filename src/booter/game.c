@@ -509,7 +509,6 @@ void c_start(void)
  print_board();
     print_prompt();
 print_timers();
-decrement_timer();
 
                 if(global_timer_state == TWO)
                 {
