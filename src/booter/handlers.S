@@ -12,15 +12,17 @@
 #
 #        Handlers generally must follow this pattern:
 #
+
 .align 4
-.globl irq0_handler
-irq0_handler:
+.globl irq0_handler  # According to wiki.osdev this is the timer
+irq0_handler:        # According to the comments, the timer is irq1. argh
     pusha   # Save registers from the interrupted code!
     cld     # If calling C code, clear direction flag
 
 
     # Call c fun
     # No need to save any registers, just call
+#    call handle_timer_interrupt
 
 
     # Acknowledge the interrupt so that the PIC will send more
@@ -34,7 +36,7 @@ irq0_handler:
     iret    # Go back to interrupted code
 
 
-.globl irq1_handler
+.globl irq1_handler  # According to wiki.osdev this is the keyboard
 irq1_handler:
     pusha   # Save registers from the interrupted code!
     cld     # If calling C code, clear direction flag
@@ -42,7 +44,7 @@ irq1_handler:
 
     # Call c fun
     # No need to save any registers, just call
-
+#    call handle_key_interrupt
 
     # Acknowledge the interrupt so that the PIC will send more
     # interrupts!  We do this by sending 0x20 to port 0x20.

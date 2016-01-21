@@ -98,3 +98,42 @@ void init_keyboard(void)
      // What does that mean?
 }
 
+unsigned char key_map(unsigned char scancode)
+{
+    switch(scancode)
+    {
+        case 0x02:
+            return '1';
+        case 0x03:
+            return '2';
+        case 0x04:
+            return '3';
+        case 0x05:
+            return '4';
+        case 0x06:
+            return '5';
+        case 0x07:
+            return '6';
+        case 0x08:
+            return '7';
+        case 0x09:
+            return '8';
+        case 0x0A:
+            return '9';
+        case 0x0B:
+            return '0';
+        case 0x13:
+            return 'r';
+        case 0x32:
+            return 'm';
+        case 0x1F:
+            return 's';
+        default: 
+            return '\0';
+    }
+}
+
+void handle_key_interrupt()
+{
+    push_queue(key_map(inb(KEYBOARD_PORT)));
+}
