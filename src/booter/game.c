@@ -296,14 +296,13 @@ void print_board()
     }
 }
 
-void print_prompt(char color)
+void print_prompt()
 {
     int i;
     char *temp;
-    if (color == LIGHT_BLUE)
+    if (global_timer_state != TWO)
     {
         temp = "Player 1";
-        /* code */
     }
     else
     {
@@ -446,7 +445,9 @@ void print_timers()
 {
     /* Print out the timer labels */
     write_string(CYAN, BLACK, "Player One Timer:", 20, 0);
+    write_int(CYAN, BLACK, timer_1, 20, 2);
     write_string(CYAN, BLACK, "Player Two Timer:", 20, 5);
+    write_int(CYAN, BLACK, timer_2, 20, 7);
 }
 
 void switch_turn()
@@ -499,7 +500,7 @@ void c_start(void)
     while (1) // while both of the timers are above 0
     {
  print_board();
-    print_prompt(0);
+    print_prompt();
 
 
         // print the board
@@ -567,7 +568,7 @@ void c_start(void)
 
 
    } print_board();
-    print_prompt(0);
+    print_prompt();
 
 
 }
