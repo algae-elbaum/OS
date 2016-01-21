@@ -2,6 +2,7 @@
 #include "video.h"
 #include "ports.h"
 #include "interrupts.h"
+#include "handlers.h"
 
 /* This is the IO port of the PS/2 controller, where the keyboard's scan
  * codes are made available.  Scan codes can be read as follows:
@@ -64,6 +65,7 @@ void circular_ptr_inc(unsigned char **ptr)
 // (not that it matters. this is chess, not speed typing)
 void push_queue(unsigned char payload)
 {
+    disable_interrupts();
     if (queue.curr_entries == queue.max_entries)
     {
         return;
@@ -71,31 +73,28 @@ void push_queue(unsigned char payload)
     *(queue.tail) = payload;
     circular_ptr_inc(&(queue.tail));
     queue.curr_entries++;
+    enable_interrupts();
 }
 
 unsigned char pop_queue()
 {   
+    disable_interrupts();
     if (queue.head == queue.tail)
     {
-        write_string(LIGHT_GREEN, "Hello World!");
-        return 'q'; // Temporary, will actually spin waiting for a key
+        enable_interrupts();
+        return '\0'; // Temporary, will actually spin waiting for a key
     }
     unsigned char result = *(queue.head);
     circular_ptr_inc(&(queue.head));
     queue.curr_entries--;
+    enable_interrupts();
     return result;
 }
 
 void init_keyboard(void) 
 {
-    disable_interrupts();
-    /* TODO:  Initialize any state required by the keyboard handler. */
     outb(KEYBOARD_PORT, 0xF2); // This let's us identify the keyboard. Probably isn't necessary
-    // Probably should initialize a circular queue for the keyboard buffer thingamaboberabob
-    /* TODO:  You might want to install your keyboard interrupt handler
-     *        here as well.
-     */
-     // What does that mean?
+    install_interrupt_handler(0x21, irq1_handler);
 }
 
 unsigned char key_map(unsigned char scancode)
@@ -135,5 +134,7 @@ unsigned char key_map(unsigned char scancode)
 
 void handle_key_interrupt()
 {
-    push_queue(key_map(inb(KEYBOARD_PORT)));
+    unsigned char key = key_map(inb(KEYBOARD_PORT));
+    if (key != '\0')
+        push_queue(key);
 }

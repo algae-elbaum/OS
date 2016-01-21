@@ -1,7 +1,7 @@
 #include "interrupts.h"
 #include "boot.h"
 #include "ports.h"
-
+#include "handlers.h"
 #include <stdint.h>
 
 
@@ -223,12 +223,13 @@ void install_interrupt_handler(int num, void *handler) {
      *        but its value isn't really relevant to us.
      */
 
-    uint16_t *cast_handler = (uint16_t *) handler;
-    interrupt_descriptor_table[num].offset_15_0 = *cast_handler;// offset bits 0..15
-    interrupt_descriptor_table[num].selector = *(cast_handler + 1);// a code segment selector in GDT or LDT
+    // Splitting this thing up is super awkward
+    int16_t *split_handler = (int16_t *)(&handler);
+    interrupt_descriptor_table[num].offset_15_0 = split_handler[0];// offset bits 0..15
+    interrupt_descriptor_table[num].selector = SEL_CODESEG;// a code segment selector in GDT or LDT
     interrupt_descriptor_table[num].zero = 0; // unused, set to 0
-    interrupt_descriptor_table[num].type_attr = 0;// descriptor type and attributes
-    interrupt_descriptor_table[num].offset_31_16 = *(cast_handler + 3); // offset bits 16..31
+    interrupt_descriptor_table[num].type_attr = 0x8E;// descriptor type and attributes
+    interrupt_descriptor_table[num].offset_31_16 = split_handler[1]; // offset bits 16..31
 }
 
 
