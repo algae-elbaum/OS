@@ -187,11 +187,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
                 {
                     return 1;
                 }
-                // all other cases (invalid move)
-                else
-                {
-                    return 0;
-                }
+                // all other cases (invalid move) fall through
             }
             // if green, things go the other direction
             else if (board[x1][y1].color == GREEN)
@@ -210,11 +206,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
                 {
                     return 1;
                 }
-                // all other cases (invalid move)
-                else 
-                {
-                    return 0;
-                }
+                // all other cases (invalid move) fall through
             }
             break;
 
@@ -225,10 +217,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
             {
                 return 1;
             }
-            else
-            {
-                return 0;
-            }
+            // all other cases (invalid move) fall through
 
         case KNIGHT:
         // moves in Ls, valid locs just listed
@@ -239,11 +228,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
             {
                 return 1;
             }
-            else
-            {
-                return 0;
-            }
-            break;
+            // all other cases (invalid move) fall through
 
         case ROOK:
         // if position is in straight line from starting position, is legal
@@ -252,11 +237,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
             {
                 return 1;
             }
-            else
-            {
-                return 0;
-            }
-            break;
+            // all other cases (invalid move) fall through
 
         case QUEEN:
         // can move on diagonals or straight lines (bishops + rook movement)
@@ -264,10 +245,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
             {
                 return 1;
             }
-            else
-            {
-                return 0;
-            }
+            // all other cases (invalid move) fall through
 
         case KING:
         // 1 square in any direction, including diagonals
@@ -275,14 +253,14 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
             {
                 return 1;
             }
-            else
-            {
-                return 0;
-            }
-
-        default:
+            // all other cases (invalid move) fall through
+        case NONE:
             write_string(RED, BLACK, 
                 "this piece does not have a valid class or does not exist", 0, 20);
+            return 0;
+        default:
+            write_string(RED, BLACK, 
+                "iinvalud move", 0, 20);
             return 0;
     }
 }
