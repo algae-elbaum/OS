@@ -49,7 +49,7 @@ void write_string(char str_color, char back_color, const char * letters, int x, 
     char temp =letters[0];
     while(temp != '\0')
     {
-        write_char(str_color, back_color, temp, x, y);
+        write_char(str_color, back_color, temp, x+i, y);
         i ++;
         temp = letters[i];
     }

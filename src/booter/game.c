@@ -125,7 +125,7 @@ void move_piece(location start, location stop)
         board[y_2][x_2].symbol = 'Q';
         board[y_2][x_2].class = QUEEN;
     }
-    board[y_1][x_1].color = -1;
+    board[y_1][x_1].color = RED;
     board[y_1][x_1].symbol='_';
     board[x_1][y_1].class = NONE;
 }
@@ -135,34 +135,46 @@ void move_piece(location start, location stop)
 int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
 {
     // check if piece color is same as turn color (so you can't move the 
-    // other person's piece)
+    // otwrite_string(board[x1][y1].color, GREEN, "this is the color on th eboard", 0, 21);
+	write_char(RED, BLACK, x1 + '0', 0, 22);
+	write_char(RED, BLACK, y1 + '0', 1, 22);
+	write_char(RED, BLACK, x2 + '0', 2, 22);
+	write_char(RED, BLACK, y2 + '0', 3, 22);
+
+        write_char(RED, BLACK, (char)  board[x1][y1].symbol, 0, 23);
+	write_char(RED, BLACK, (char)  board[x1][y1].color+'0', 0, 24);
     if (board[x1][y1].color != turn_color)
     {
-        write_string(RED, BLACK, "cannot move this piece, it's not your turn\n", 20, 0);
-        return 0;
+	write_string(RED, BLACK, "cannot move this piece, it's not your turn", 0, 20);
+	        return 0;
     }
     // if end move is start move, print error and return
     if (x1 == x2 && y1 == y2)
     {
-        write_string(RED, BLACK, "invalid input, end location is same as start\n", 20, 0);
+        write_string(RED, BLACK, "invalid input, end location is same as start", 0, 20);
         return 0;
     }
     // if end move is off the board, print error and return
     if ((x1 < 0 || x1 > 8) || (x2 < 0 || x2 > 8) || (y1 < 0 || y1 > 8) || (y2 < 0 || y2 > 8))
     {
-        write_string(RED, BLACK, "invalid input, end location is off the board\n", 20, 0);
+        write_string(RED, BLACK, "invalid input, end location is off the board", 0, 20);
         return 0;
     }
+		    write_string(RED, BLACK, "hey we entered the thing", 30, 20);
     switch(board[x1][y1].class)
     {
         case PAWN:
             // if in starting row, can move 2 or 1 spaces
         // if forward diagonals 1 unit away are occupied, can move there
         // else can move 1 space fwd
-            if (board[x1][y1].color = LIGHT_BLUE)
+		    write_string(RED, BLACK, "hey its a pawn", 30, 20);
+            if (board[x1][y1].color == LIGHT_BLUE)
             {
-                if (x1 == 1 && (x2 == 2 || x2 == 3)) // if in starting row
+
+		    write_string(RED, BLACK, "hey its LB moved", 30, 20);
+                if (x1 == 1 && (x2 == 2 || x2 == 3) && y2 == y1) // if in starting row
                 {
+		    write_string(RED, BLACK, "hey the pawn moved", 30, 20);
                     return 1;
                 }
                 else if (x2 == x1 + 1 && y2 == y1) // normal case
@@ -182,7 +194,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
                 }
             }
             // if green, things go the other direction
-            else if (board[x1][y1].color = GREEN)
+            else if (board[x1][y1].color == GREEN)
             {
                 if (x1 == 7 && (x2 == 6 || x2 == 5)) // if in starting row
                 {
@@ -270,7 +282,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
 
         default:
             write_string(RED, BLACK, 
-                "this piece does not have a valid class or does not exist\n", 20, 0);
+                "this piece does not have a valid class or does not exist", 0, 20);
             return 0;
     }
 }
@@ -322,7 +334,7 @@ void print_prompt(char color)
     write_string(CYAN, BLACK, "Start Row:", 0, 12);
     write_string(CYAN, BLACK, "Start Col:", 0, 13);
     write_string(CYAN, BLACK, "Stop Row:", 0, 14);
-    write_string(CYAN, BLACK, "Sttop Col:", 0, 15);
+    write_string(CYAN, BLACK, "Stop Col:", 0, 15);
 }
 
 void bishop_path(location start, location stop, location * ans)
@@ -496,8 +508,6 @@ void c_start(void) {
     /* Loop forever, so that we don't fall back into the bootloader code. */
     init_video();
     init_board();
-    print_board();
-    print_prompt(0);
 
     // Somewhere after move one, we need to say that the timer is now 
     // belgoning to Green. Use the timer_state enum
@@ -509,13 +519,17 @@ void c_start(void) {
         proposed_move[i] = -1;
     }
     i = 0;
-
+    print_timers();
     while (1) // while both of the timers are above 0
     {
+ print_board();
+    print_prompt(0);
+
+
         // print the board
         // pull from keyboard
         char curr_key = pop_queue();
-        
+        write_char(RED, BLACK, 't', 30, 15);
         // want to know what type of key do you get?
         switch(curr_key)
         {
@@ -527,13 +541,15 @@ void c_start(void) {
             case '6':
             case '7':
             case '0':
-                proposed_move[i] = curr_key;
+                proposed_move[i] = curr_key - '0';
                 i ++;
                 write_char(CYAN, BLACK, curr_key, 12, 12+i);
+		break;
             case '\b':
                 proposed_move[i] = -1;
                 i --;
                 write_char(BLACK, BLACK, '_', 12, 12+i);
+		break;
             case '\n':
                 for (i = 0; i < 4; ++i)
                 {
@@ -549,6 +565,7 @@ void c_start(void) {
                 {
                     curr_color = LIGHT_BLUE;
                 }
+		write_string(curr_color, BLACK, "Halphalp", 31, 15);
                 if (is_legal_move(proposed_move[0], proposed_move[1], proposed_move[2], proposed_move[3], curr_color))
                 {
                     location loc1;
@@ -563,6 +580,8 @@ void c_start(void) {
             case '\0':
                 // do nothing
                 break;
+	    default:
+                write_char(RED, BLACK, curr_key, 30, 30);
         }
 
         // print the timer numbers. we get the updated numbers from the interrupt.
@@ -571,6 +590,9 @@ void c_start(void) {
         // but that is something related to the timer
 
 
-    }
+   } print_board();
+    print_prompt(0);
+
+
 }
 

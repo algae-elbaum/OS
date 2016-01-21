@@ -48,8 +48,8 @@ typedef struct
 
 } circular_queue;
 
-unsigned char queue_array[QUEUE_SIZE] = {'0','1', '3','4','\n'}; // Yay static allocation
-circular_queue queue = {queue_array, queue_array, 0, QUEUE_SIZE};
+unsigned char queue_array[QUEUE_SIZE] = {'0','1', '0','2','\b','3','\n'}; // Yay static allocation
+circular_queue queue = {queue_array, queue_array+QUEUE_SIZE-1, 0, QUEUE_SIZE};
 
 // Incrementing for pointers in the circular queue
 void circular_ptr_inc(unsigned char **ptr)
