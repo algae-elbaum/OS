@@ -219,6 +219,24 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
         // if slope between desired and start is 1, is on diagonal
             if ((y2 - y1) == (x2 - x1) || (y2 - y1) == -(x2 - x1))
             {
+                // check if it passes through any occupied spaces
+                location start;
+                location end;
+                location thru;
+                start.x = x1;
+                start.y = y1;
+                end.x = x2;
+                end.y = y2;
+                bishop_path(start, end, thru);
+                int i;
+                for (i = 0; thru[i].x != -1; i++)
+                {
+                    if (board[thru[i].x][thru[i].y].class != NONE)
+                    {
+                        return 0;
+                    }
+                }
+
                 return 1;
             }
             // all other cases (invalid move) fall through
@@ -358,6 +376,9 @@ void bishop_path(location start, location stop, location * ans)
         ans[k] = temp;
         k ++;
     }
+    temp.x = -1;
+    temp.y = -1;
+    ans[k] = temp; // to know where it terminates
 }
 void rook_path(location start, location stop, location * ans)
 {
@@ -390,7 +411,6 @@ void rook_path(location start, location stop, location * ans)
                 ans[k] = temp;
                 k ++;
             }
-        }
     }
     else
     {
@@ -410,6 +430,9 @@ void rook_path(location start, location stop, location * ans)
             }
         }
     }
+    temp.x = -1;
+    temp.y = -1;
+    ans[k] = temp; // to know where it terminates
 }
 
 _Bool check_check(char color)
