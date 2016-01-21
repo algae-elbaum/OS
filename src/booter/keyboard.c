@@ -77,8 +77,7 @@ unsigned char pop_queue()
 {   
     if (queue.head == queue.tail)
     {
-        write_string(LIGHT_GREEN, "Hello World!");
-        return 'q'; // Temporary, will actually spin waiting for a key
+        return '\0'; 
     }
     unsigned char result = *(queue.head);
     circular_ptr_inc(&(queue.head));
@@ -128,6 +127,10 @@ unsigned char key_map(unsigned char scancode)
             return 'm';
         case 0x1F:
             return 's';
+        case 0x5A:
+            return '\n'; // return carriage
+        case 0x0E:
+            return '\b'; // Backspace
         default: 
             return '\0';
     }

@@ -1,6 +1,7 @@
 /* This is the entry-point for the game! */
 #include "video.h"
 #define TIMER_START_TIME 18000 // Half hour of play is on the timer
+#include "keyboard.h"
 
 // Gotta write Chess or something
 // so we need an 8x8 board that needs to store data, so maybe store 
@@ -330,11 +331,58 @@ void c_start(void) {
     // Somewhere after move one, we need to say that the timer is now 
     // belgoning to Green. Use the timer_state enum
     // there is an off state provded for when the first move hasn't been played yet
-
-
-    while (1) 
+    int proposed_move[4];
+    int i;
+    for (i = 0; i < 4; ++i)
     {
-//        write_string(LIGHT_BLUE, "Hello World!");
+        proposed_move[i] = -1;
+    }
+    i = 0;
+
+    while (1) // while both of the timers are above 0
+    {
+        // print the board
+        // pull from keyboard
+        char curr_key = pop_queue();
+        
+        // want to know what type of key do you get?
+        switch(curr_key)
+        {
+            case '1':
+            case '2':
+            case '3':
+            case '4':
+            case '5':
+            case '6':
+            case '7':
+            case '0':
+                proposed_move[i] = curr_key;
+                i ++;
+                write_char(CYAN, BLACK, curr_key, 12, 12+i);
+            case '\b':
+                proposed_move[i] = -1;
+                i --;
+                write_char(BLACK, BLACK, '_', 12, 12+i);
+            case '\n':
+                for (i = 0; i < 4; ++i)
+                {
+                    write_char(BLACK, BLACK, '_', 12, 12+i);
+                }
+                i = 0;
+                // check for valid mvoe and make the move
+                // every time we press enter we try to run the move. if we fail to 
+                    // make that move then we stay on the same turn. otherwise we switch turns
+            case '\0':
+                // do nothing
+                break;
+        }
+
+        // print the timer numbers. we get the updated numbers from the interrupt.
+        // check if its down to 0. If so, display that the player is out 
+        // of time and turn red or something
+        // but that is something related to the timer
+
+
     }
 }
 
