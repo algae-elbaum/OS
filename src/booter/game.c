@@ -149,7 +149,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
 	write_char(RED, BLACK, (char)  board[x1][y1].color+'0', 0, 24);
     if (board[x1][y1].color != turn_color)
     {
-	write_string(RED, BLACK, "cannot move this piece, it's not your turn", 0, 20);
+	write_string(RED, board[x1][y1].color, "cannot move this piece, it's not your turn", 0, 20);
 	        return 0;
     }
     // if end move is start move, print error and return
@@ -299,14 +299,13 @@ void print_board()
     }
 }
 
-void print_prompt(char color)
+void print_prompt()
 {
     int i;
     char *temp;
-    if (color == LIGHT_BLUE)
+    if (global_timer_state != TWO)
     {
         temp = "Player 1";
-        /* code */
     }
     else
     {
@@ -449,7 +448,9 @@ void print_timers()
 {
     /* Print out the timer labels */
     write_string(CYAN, BLACK, "Player One Timer:", 20, 0);
+    write_int(CYAN, BLACK, timer_1, 20, 2);
     write_string(CYAN, BLACK, "Player Two Timer:", 20, 5);
+    write_int(CYAN, BLACK, timer_2, 20, 7);
 }
 
 void switch_turn()
@@ -503,7 +504,8 @@ void c_start(void)
     while (1) // while both of the timers are above 0
     {
  print_board();
-    print_prompt(0);
+    print_prompt();
+print_timers();
 
                 if(global_timer_state == TWO)
                 {
@@ -513,7 +515,7 @@ void c_start(void)
                 {
                     curr_color = LIGHT_BLUE;
                 }
- 		write_string(BLACK, curr_color, "____", 19,12);
+ 		write_string(curr_color, curr_color, "____", 19,12);
 
         // print the board
         // pull from keyboard
@@ -550,7 +552,7 @@ void c_start(void)
                     write_char(BLACK, BLACK, '_', 12, 12+i);
                 }
                 i = 0;
-                if (is_legal_move(proposed_move[0], proposed_move[1], proposed_move[2], proposed_move[3], curr_color))
+                if (is_legal_move(proposed_move[1], proposed_move[0], proposed_move[3], proposed_move[2], curr_color))
                 {
                     location loc1;
                     loc1.x = proposed_move[0];
@@ -560,11 +562,12 @@ void c_start(void)
                     loc2.y = proposed_move[3];
                     move_piece(loc1, loc2);
                     switch_turn();
-		    for(i=0;i<4;i++)
+		
+                }    for(i=0;i<4;i++)
 			{
 			proposed_move[i] = -1;
 			}
-                }
+i = 0;
             case '\0':
                 // do nothing
                 break;
@@ -579,7 +582,7 @@ void c_start(void)
 
 
    }} print_board();
-    print_prompt(0);
+    print_prompt();
 
 
 }

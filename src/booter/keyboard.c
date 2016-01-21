@@ -128,7 +128,6 @@ unsigned char key_map(unsigned char scancode)
         case 0x1F:
             return 's';
         case 0x1C:
-            write_string(RED, BLACK, "qwerty", 19, 5);
             return '\n'; // return carriage
         case 0x0E:
             return '\b'; // Backspace
