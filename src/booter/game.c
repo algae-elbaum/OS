@@ -135,6 +135,46 @@ void print_board()
     }
 }
 
+void print_prompt(_Bool color)
+{
+    int i;
+    char *temp;
+    if (color)
+    {
+        temp = "Player 1";
+        /* code */
+    }
+    else
+    {
+        temp = "Player 2";
+    }
+    for (i = 0; i < 8; ++i)
+    {
+        write_char(CYAN, BLACK, temp[i], i, 11);
+    }
+    temp = "Start Row:";
+    for (i = 0; i <10; ++i)
+    {
+        write_char(CYAN, BLACK, temp[i], i, 12);
+    }
+    temp = "Start Col:";
+    for (i = 0; i < 10; ++i)
+    {
+        write_char(CYAN, BLACK, temp[i], i, 13);
+    }
+    temp = "Stop Row:";
+    for (i = 0; i <10; ++i)
+    {
+        write_char(CYAN, BLACK, temp[i], i, 14);
+    }
+    temp = "Stop Col:";
+    for (i = 0; i < 10; ++i)
+    {
+        write_char(CYAN, BLACK, temp[i], i, 15);
+    }
+
+}
+
 void c_start(void) {
     /* TODO:  You will need to initialize various subsystems here.  This
      *        would include the interrupt handling mechanism, and the various
@@ -147,6 +187,7 @@ void c_start(void) {
     init_video();
     init_board();
     print_board();
+    print_prompt(0);
 
     while (1) 
     {
