@@ -19,7 +19,7 @@
  * the VGA links in the "Video" section.
  */
 #define VIDEO_BUFFER ((void *) 0xB8000)
-
+#define SCREEN_WIDTH 80  // Experimentally determined. Should look up docs
 
 /* TODO:  You can create static variables here to hold video display state,
  *        such as the current foreground and background color, a cursor
@@ -27,10 +27,19 @@
  */
 
 
-void init_video(void) {
-    /* TODO:  Do any video display initialization you might want to do, such
-     *        as clearing the screen, initializing static variable state, etc.
-     */
+void clear_screen()
+{
+    // Clear an 80x80 square (should be more than an entire screen)
+    int i;
+    for (i = 0; i < 2 * SCREEN_WIDTH * SCREEN_WIDTH; i++)
+    {
+        *((char *)(VIDEO_BUFFER + i)) = 0;
+    }
+}
+
+void init_video() 
+{
+    clear_screen();  
 }
 void write_string( int colour, const char *string )
 {
@@ -42,10 +51,11 @@ void write_string( int colour, const char *string )
         *video++ = colour;
     }
 }
-void write_char(int color, const char letter,int x, int y)
+void write_char(char char_color, char back_color, const char letter,int x, int y)
 {
-    int screen_width = 71; // what is it actually?
-    int pos = x + y * screen_width;
-    *((char *)VIDEO_BUFFER + pos) = letter;
-    *((char *)VIDEO_BUFFER + pos + 1) = color;
+    int pos = x + y * SCREEN_WIDTH;
+    int color = back_color << 4;
+    color += char_color;
+    *((char *)VIDEO_BUFFER + 2*pos) = letter;
+    *((char *)VIDEO_BUFFER + 2*pos + 1) = color;
 }

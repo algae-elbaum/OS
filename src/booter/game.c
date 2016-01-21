@@ -9,9 +9,9 @@ typedef enum{PAWN, BISHOP, KNIGHT, ROOK, QUEEN, KING, NONE} classtype;
 typedef struct 
 {
     classtype class;
-    _Bool color; // Let's make the board black and white, and the pieces red and green
-    // that way we can have pieces be the foreground color and the background always be black
-    // or white
+    char color; // Let's make the board black and white, and the pieces red and green
+                // that way we can have pieces be the foreground color and the background always be black
+                // or white
     char symbol;
 } piece;
 piece board[8][8]; // row, col
@@ -25,74 +25,74 @@ void init_board()
         for (j = 0; j < 8; ++j)
         {
             board[i][j].class = NONE;
-	    board[i][j].color = 0; // Do the color sbetter  (void *) 0;
+            board[i][j].color = -1;
             board[i][j].symbol = '_';
         }
     }
     for (i = 0; i < 8; ++i)
     {
         board[1][i].class = PAWN;
-        board[1][i].color = 0;
-        board[1][i].symbol = 'p';
+        board[1][i].color = LIGHT_BLUE;
+        board[1][i].symbol = 'P';
     }
     for (i = 0; i < 8; ++i)
     {
-        board[7][i].class = PAWN;
-        board[7][i].color = 1;
-        board[7][i].symbol = 'p';
+        board[6][i].class = PAWN;
+        board[6][i].color = GREEN;
+        board[6][i].symbol = 'P';
     }
     // Set up non-pawns
     board[0][0].class = ROOK;
-    board[0][0].color = 0;
+    board[0][0].color = LIGHT_BLUE;
     board[0][0].symbol = 'R';
     board[0][7].class = ROOK;
-    board[0][7].color = 0;
+    board[0][7].color = LIGHT_BLUE;
     board[0][7].symbol = 'R';
     board[8][0].class = ROOK;
-    board[8][0].color = 1;
-    board[8][0].symbol = 'R';
-    board[8][7].class = ROOK;
-    board[8][7].color = 1;
-    board[8][7].symbol = 'R';
+    board[7][0].color = GREEN;
+    board[7][0].symbol = 'R';
+    board[7][7].class = ROOK;
+    board[7][7].color = GREEN;
+    board[7][7].symbol = 'R';
 
     board[0][1].class = KNIGHT;
-    board[0][1].color = 0;
+    board[0][1].color = LIGHT_BLUE;
     board[0][1].symbol = 'N';
     board[0][6].class = KNIGHT;
-    board[0][6].color = 0;
+    board[0][6].color = LIGHT_BLUE;
     board[0][6].symbol = 'N';
-    board[8][1].class = KNIGHT;
-    board[8][1].color = 1;
-    board[8][1].symbol = 'N';
-    board[8][6].class = KNIGHT;
-    board[8][6].color = 1;
-    board[8][6].symbol = 'N'; 
+    board[7][1].class = KNIGHT;
+    board[7][1].color = GREEN;
+    board[7][1].symbol = 'N';
+    board[7][6].class = KNIGHT;
+    board[7][6].color = GREEN;
+    board[7][6].symbol = 'N'; 
 
     board[0][2].class = BISHOP;
-    board[0][2].color = 0;
+    board[0][2].color = LIGHT_BLUE;
     board[0][2].symbol = 'B';
     board[0][5].class = BISHOP;
-    board[0][5].color = 0;
+    board[0][5].color = LIGHT_BLUE;
     board[0][5].symbol = 'B';
-    board[8][2].class = BISHOP;
-    board[8][2].color = 1;
-    board[8][2].symbol = 'B';
-    board[8][5].class = BISHOP;
-    board[8][5].color = 1;
-    board[8][5].symbol = 'B';
+    board[7][2].class = BISHOP;
+    board[7][2].color = GREEN;
+    board[7][2].symbol = 'B';
+    board[7][5].class = BISHOP;
+    board[7][5].color = GREEN;
+    board[7][5].symbol = 'B';
 
     board[0][4].class = KING;
-    board[0][4].color = 0;
+    board[0][4].color = LIGHT_BLUE;
     board[0][4].symbol = 'K';
     board[0][3].class = QUEEN;
-    board[0][3].color = 0;
+    board[0][3].color = LIGHT_BLUE;
     board[0][3].symbol = 'Q';
-    board[8][3].class = KING;
-    board[8][3].color = 1;
-    board[8][3].symbol = 'K';
-    board[8][4].class = QUEEN;
-    board[8][4].color = 1;
-    board[8][4].symbol = 'Q';
+    board[7][3].class = KING;
+    board[7][3].color = GREEN;
+    board[7][3].symbol = 'K';
+    board[7][4].class = QUEEN;
+    board[7][4].color = GREEN;
+    board[7][4].symbol = 'Q';
 }
 
 void move_piece(int x_1, int y_1, int x_2, int y_2)
@@ -100,9 +100,9 @@ void move_piece(int x_1, int y_1, int x_2, int y_2)
     /* Actually does the movement. Doesn't check for anything
     */
     board[y_2][x_2] = board[y_1][x_1];
-    board[y_1][x_1].color = 0;
-   board[y_1][x_1].symbol='_';
-board[x_1][y_1].class = NONE;
+    board[y_1][x_1].color = -1;
+    board[y_1][x_1].symbol='_';
+    board[x_1][y_1].class = NONE;
 }
 
 void print_board()
@@ -114,25 +114,23 @@ void print_board()
       ...
     */
     int i,j;
+    
+    // 48 is ascii 0
     for (i = 0; i < 8; ++i)
     {
-        write_char(CYAN, i, i, 0);
-        write_char(CYAN, i, 0, i);
-        write_char(CYAN, i, 9, i);
-        write_char(CYAN, i, i, 9);
+        write_char(CYAN, DARK_GRAY, i+48, i+1, 0);
+        write_char(CYAN, DARK_GRAY, i+48, 0, i+1);
+        write_char(CYAN, DARK_GRAY, i+48, 9, i+1);
+        write_char(CYAN, DARK_GRAY, i+48, i+1, 9);
     }
+
     for (i = 0; i < 8; ++i)
     {
         for (j = 0; j < 8; ++j)
         {
-            if (board[i][j].color)
-            {
-                write_char(WHITE, board[i][j].symbol, i+1, j+1);
-            }
-            else
-            {
-                write_char(BLACK, board[i][j].symbol, i+1, j+1);                
-            }
+            char back_color = ((i+j) % 2 == 0) ? WHITE : BLACK;
+            char char_color = (board[i][j].color == -1) ? back_color : board[i][j].color;
+            write_char(char_color, back_color, board[i][j].symbol, i+1, j+1);                
         }
     }
 }
@@ -146,13 +144,13 @@ void c_start(void) {
      */
 
     /* Loop forever, so that we don't fall back into the bootloader code. */
-    unsigned char c = 'a';
+    init_video();
+    init_board();
+    print_board();
+
     while (1) 
     {
-        write_string(RED, "Hello World!");
-        init_board();
-        print_board();
-
+//        write_string(LIGHT_BLUE, "Hello World!");
     }
 }
 
