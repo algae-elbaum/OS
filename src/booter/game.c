@@ -128,7 +128,7 @@ void print_board()
     {
         for (j = 0; j < 8; ++j)
         {
-            char back_color = ((i+j) % 2 == 0) ? WHITE : BLACK;
+            char back_color = ((i+j) % 2 == 0) ? BLACK : WHITE;
             char char_color = (board[i][j].color == -1) ? back_color : board[i][j].color;
             write_char(char_color, back_color, board[i][j].symbol, i+1, j+1);                
         }
