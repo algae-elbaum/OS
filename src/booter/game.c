@@ -14,6 +14,13 @@ typedef struct
                 // or white
     char symbol;
 } piece;
+
+typedef struct 
+{
+    int x;
+    int y;
+} location;
+
 piece board[8][8]; // row, col
 
 void init_board()
@@ -95,11 +102,23 @@ void init_board()
     board[7][4].symbol = 'Q';
 }
 
-void move_piece(int x_1, int y_1, int x_2, int y_2)
+void move_piece(location start, location stop)
 {
     /* Actually does the movement. Doesn't check for anything
+    does handle promotion properly though.
+    // all pawns just become queens
     */
+    int x_1 = start.x;
+    int x_2 = stop.x;
+    int y_1 = start.y;
+    int y_2 = stop.y;
+
     board[y_2][x_2] = board[y_1][x_1];
+    if (board[y_1][x_1].symbol=='p' && (x_1 == 8 || x_1 == 0))
+    {
+        board[y_2][x_2].symbol = 'Q';
+        board[y_2][x_2].class = QUEEN;
+    }
     board[y_1][x_1].color = -1;
     board[y_1][x_1].symbol='_';
     board[x_1][y_1].class = NONE;
@@ -172,7 +191,101 @@ void print_prompt(_Bool color)
     {
         write_char(CYAN, BLACK, temp[i], i, 15);
     }
+}
 
+location * bishop_path(location start, location stop, location * ans)
+{
+    // determines which tiles a bishop would have had to go through 
+    // in order to get here
+    // assert that the move is always correct, so it should only be
+    // called if the relative positions are correct. basically
+    // we are checking if there is something in the way.
+    // ans should be an array of size seven because its the longest
+    // possible value
+    int i = start.x;
+    int j = start.y;
+    int x_dir = stop.x - start.x;
+    int y_dir = stop.y - start.y;
+    location temp;
+    int k = 0; //iterator
+    //assert that these directions cannot be 0.
+    while(i != stop.x && j != stop.y)
+    {
+        if (x_dir > 0)
+        {
+            i ++;
+        }
+        else
+        {
+            i --;
+        }
+        if (y_dir > 0)
+        {
+            j ++;
+        }
+        else
+        {
+            j--;
+        }
+        temp.x = i;
+        temp.y = j;
+        ans[k] = temp;
+        k ++;
+    }
+    return ans;
+}
+location * rook_path(location start, location stop, location * ans)
+{
+    // determines which tiles a rook would have had to go through 
+    // in order to get here
+    // assert that the move is always correct, so it should only be
+    // called if the relative positions are correct. basically
+    // we are checking if there is something in the way.
+    // ans should be an array of size seven because its the longest
+    // possible value
+    int i = start.x;
+    int j = start.y;
+    int x_dir = stop.x - start.x;
+    int y_dir = stop.y - start.y;
+    location temp;
+    int k = 0; //iterator
+    if(x_dir != 0)
+    {
+        while(i != stop.x && j != stop.y)
+        {
+            if (x_dir > 0)
+            {
+                i ++;
+            }
+            else
+            {
+                i --;
+                temp.x = i;
+                temp.y = j;
+                ans[k] = temp;
+                k ++;
+            }
+        }
+    }
+    else
+    {
+        while(i != stop.x && j != stop.y)
+        {
+            if (y_dir > 0)
+            {
+                j ++;
+            }
+            else
+            {
+                j --;
+                temp.x = i;
+                temp.y = j;
+                ans[k] = temp;
+                k ++;
+            }
+        }
+    }
+    return ans;
 }
 
 void c_start(void) {
