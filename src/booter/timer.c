@@ -3,6 +3,7 @@
 #include "ports.h"
 #include "handlers.h"
 #include "game.h"
+#include "video.h"//remove this when we don't have debugging code here
 
 /*============================================================================
  * PROGRAMMABLE INTERVAL TIMER
@@ -54,11 +55,13 @@ void timer_handler()
 {
     static int counter = 0;
     counter ++;
-    if(counter == 1193182)
+    if(counter == 100)//1193182)
     {
         counter = 0;
         decrement_timer();
     }
+    write_string(RED, BLACK, "asdf", 40,2);
+        write_int(RED, BLACK, counter, 40,3,7);
 }
 
 void init_timer(void) {
