@@ -132,8 +132,15 @@ void move_piece(location start, location stop)
 
 // checks if a move is legal, given a starting and ending position
 // note: blue side always moves first
-int is_legal_move(int x1, int y1, int x2, int y2)
+int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
 {
+    // check if piece color is same as turn color (so you can't move the 
+    // other person's piece)
+    if (board[x1][y1].color != turn_color)
+    {
+        write_string(RED, BLACK, "cannot move this piece, it's not your turn\n", 20, 0);
+        return 0;
+    }
     // if end move is start move, print error and return
     if (x1 == x2 && y1 == y2)
     {
