@@ -135,7 +135,7 @@ void move_piece(location start, location stop)
 int is_legal_move(int x1, int y1, int x2, int y2)
 {
     // if end move is start move, print error and return
-    if (x1 == x2 && y1 = y2)
+    if (x1 == x2 && y1 == y2)
     {
         write_string(RED, BLACK, "invalid input, end location is same as start\n", 20, 0);
         return 0;
@@ -158,7 +158,7 @@ int is_legal_move(int x1, int y1, int x2, int y2)
                 {
                     return 1;
                 }
-                else if (x2 == x1 + 1 && y2 = y1) // normal case
+                else if (x2 == x1 + 1 && y2 == y1) // normal case
                 {
                     return 1;
                 }
@@ -181,7 +181,7 @@ int is_legal_move(int x1, int y1, int x2, int y2)
                 {
                     return 1;
                 }
-                else if (x2 == x1 - 1 && y2 = y1) // normal case
+                else if (x2 == x1 - 1 && y2 == y1) // normal case
                 {
                     return 1;
                 }
@@ -460,6 +460,18 @@ void switch_turn()
     else
     {
         global_timer_state = TWO;
+    }
+}
+
+void decrement_timer()
+{
+    if (global_timer_state == ONE)
+    {
+        timer_1 --;
+    }
+    if (global_timer_state == TWO)
+    {
+        timer_2 --;
     }
 }
 

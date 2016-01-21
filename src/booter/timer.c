@@ -1,6 +1,7 @@
 
 #include "timer.h"
 #include "ports.h"
+#include "game.h"
 
 /*============================================================================
  * PROGRAMMABLE INTERVAL TIMER
@@ -48,6 +49,17 @@
  *        compiler knows they can be changed by exceptional control flow.
  */
 
+void timer_handler()
+{
+    static int counter = 0;
+    counter ++;
+    if(counter == 1193182)
+    {
+        counter = 0;
+    }
+    // call a game function
+    decrement_timer();
+}
 
 void init_timer(void) {
 
