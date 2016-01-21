@@ -27,6 +27,7 @@ piece board[8][8]; // row, col
 int timer_1 = TIMER_START_TIME;
 int timer_2 = TIMER_START_TIME;
 typedef enum{ONE, TWO, OFF} timer_state;
+timer_state global_timer_state = OFF;
 
 void init_board()
 {
@@ -450,6 +451,18 @@ void print_timers()
     write_string(CYAN, BLACK, "Player Two Timer:", 20, 5);
 }
 
+void switch_turn()
+{
+    if (global_timer_state == TWO)
+    {
+        global_timer_state = ONE;
+    }
+    else
+    {
+        global_timer_state = TWO;
+    }
+}
+
 /* Not sure how to do anything having to do with printing the numbers for the timer
 and making it decrease */
 
@@ -508,9 +521,17 @@ void c_start(void) {
                     write_char(BLACK, BLACK, '_', 12, 12+i);
                 }
                 i = 0;
-                // check for valid mvoe and make the move
-                // every time we press enter we try to run the move. if we fail to 
-                    // make that move then we stay on the same turn. otherwise we switch turns
+                if (is_legal_move(proposed_move[0], proposed_move[1], proposed_move[2], proposed_move[3]))
+                {
+                    location loc1;
+                    loc1.x = proposed_move[0];
+                    loc1.y = proposed_move[1];
+                    location loc2;
+                    loc2.x = proposed_move[2];
+                    loc2.y = proposed_move[3];
+                    move_piece(loc1, loc2);
+                    switch_turn();
+                }
             case '\0':
                 // do nothing
                 break;
