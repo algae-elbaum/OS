@@ -165,8 +165,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color, _Bool print_e
     if (board[x1][y1].color != turn_color)
     {
         if(print_errors){
-        write_char(RED, board[x1][y1].color, board[x1][y1].symbol, 0, 21);
-	       write_string(RED, board[x1][y1].color, "cannot move this piece, it's not your turn", 0, 20);}
+	       write_string(RED, BLACK, "cannot move this piece, it's not your turn", 0, 20);}
 	        return 0;
     }
     // if end move is start move, print error and return
