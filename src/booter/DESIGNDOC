@@ -1,0 +1,284 @@
+			+-----------------------+
+			|         CS 124        |
+			| PROJECT 2: BOOTLOADER |
+			|    DESIGN DOCUMENT    |
+			+-----------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+Kyle Seipp kseipp@caltech.edu
+Henry Elbaum helbaum@caltech.edu
+bianca Ray Avalani brayaval@caltech.edu
+
+>> Specify how many late tokens you are using on this assignment:  
+1
+
+>> What is the Git repository and commit hash for your submission?
+   (You only need to include the commit-hash in the file you submit
+   on Moodle.)
+
+   Repository URL: login.cms.caltech.edu:/cs/courses/cs124/teams/ComedicLuddites
+   commit ...
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+We wrote Chess. It has timers. I hear people played this game in 
+the olden times when computers were slow and the size of rooms.
+For blitz mode, you can capture enemy kings rather than merely checkmating
+them.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course instructors.
+
+Wikis for chess moves, stack exchange for python commands
+
+			     PC BOOTER
+			     =========
+
+---- LOGISTICS ----
+
+These questions will help us to keep track of the difficulty level of
+assignments, as well as keeping track of which team members worked on
+which parts.
+
+>> L1: How many hours did each team member spend on this assignment?
+   Make sure that each member's total time is listed.
+
+   Bianca: 12.5
+   Henry: 15
+   Kleppppppps: 11
+
+>> L2: What did each team member focus on for this assignment?  Keep
+   descriptions to 25-30 words or less.
+Kyle: Wrote preliminary code for interrupts, and keyboard. Worked on printing.
+Wrote parts of the chess game.
+
+Bianca: Wrote and debugged parts of the game, helped with some of the initial timer
+/ interrupt code
+
+Henry: Bootloader, interrupts, helped display board correctly
+
+Note that this design document is a bit long.  Most of the questions can be
+answered pretty briefly.  Don't feel a need to write a long answer if it is
+not required by the question.
+
+			     GAME / DEMO
+			     ===========
+
+---- ALGORITHMS ----
+
+>> A1: In 25-30 words or less, what does your PC booter do?
+
+Plays chess, using keyboard to make moves and with a chess timer implemented
+
+>> A2: In 25-30 words or less, how does the user interact with the program?
+>> What are the controls?  What should the user try to do?
+The user types numbers to order his/her troops into battle. You input the numbers
+and of a start square and an end square to make a move if it is valid. The user should
+try to capture the opposing player's king before their timer runs out. Note that this
+game is multiplayer only.
+
+---- DATA STRUCTURES ----
+
+>> A3: Describe any global state that your program manages in order to
+>> perform its operations.  Don't focus on state managed within interrupt
+>> handlers; we will look at that later.  Rather, focus on state that is
+>> part of the game implementation itself.
+The game has a board as global state, as well as timers (???)
+The board contains what all of the pieces are and their information ie color, class, location, etc.
+
+---- SYNCHRONIZATION ----
+
+>> A4: From the perspective of the entire program, briefly describe how
+>> the various interrupts are handled and processed within your program.
+>> For example, when a timer interrupt occurs, what is the general sequence
+>> of operations or updates that is performed within your program?
+>> Similarly, when a keyboard interrupt occurs, what does your program do
+>> in response?
+
+>> A5: Would you say your program relies on polling or busy-waiting anywhere
+>> to accomplish its tasks?  If so, what tasks?
+
+---- RATIONALE ----
+
+>> A6: Why did you choose the project you did?
+
+We chose Chess because it would be possible to do in both text mode, and pixel mode.
+In addition, we all knew more or less how the pieces move/interact, and it seemed fairly
+logical. 
+
+>> A7: Did your choice of project affect any of the specific implementation
+>> details of the various subsystems that you needed to use?  (For example,
+>> if you implemented a scrolling game, did you implement specialized high-
+>> performance video code to scroll the screen?)
+
+Chess timers
+
+>> A8: Did you run into any technical or resource limitations in the
+>> implementation of your program?  (For example, bootloader didn't fit,
+>> or a really useful standard library wasn't available, or you couldn't
+>> achieve the desired performance level, etc.)  If so, what steps did you
+>> take to try to overcome those limitations?
+
+			     BOOT SECTOR
+			     ===========
+
+---- DATA STRUCTURES ----
+
+>> B1: How did you decide to store the Disk Address Packet?  Does the
+>> memory occupied by the DAP get reclaimed after it is used?  If not,
+>> why not?
+
+>> B2: Does your bootloader pass any information to the main program?
+>> (If not, just say no.)  If so, what information is passed, and how
+>> is it passed?
+
+---- ALGORITHMS ----
+
+>> B3: Briefly describe how your bootloader brings your program into
+>> memory.  Does it perform one large load, or multiple smaller loads?
+
+>> B4: Did you add any BIOS calls to your bootloader to prepare for your
+>> main program?  (i.e. things that aren't available in protected mode)
+
+			  VIDEO SUBSYSTEM
+			  ===============
+
+---- DATA STRUCTURES ----
+
+>> C1: What video display mode does your program use?  Is it a text mode
+>> or a graphical mode?  Where does the video buffer start?  How is data
+>> represented in this mode?  (Please be brief; we don't need complete
+>> documentation on the video system.)
+We stay in text mode. The video buffer starts at 0xB8000.
+Data is passed in as pairs of integers. The first represents the letter, 
+and the second the color.
+
+>> C2: Does your video code maintain any variables or data structures to
+>> facilitate video output?  Briefly describe these values and their
+>> purposes here.
+No, but it does have functions.
+
+---- ALGORITHMS ----
+
+>> C3: What abstraction does your video code present to your main program?
+>> Briefly describe the higher-level operations you decided to implement.
+Higher level code can access the video buffer directly, but shouldn't. There are
+a few helper functions. One clears the screen, another allows us to print 
+single characters to any position on the screen, and a third allows us
+to print a string starting at any point on the screen. It does not give us
+fine tuned control like printing specific characters does, but it is nicer
+when we need to print labels and strings.
+
+---- RATIONALE ----
+
+>> C4: Did you take any specific steps to improve the appearance of your
+>> program's display output?  For example, using Extended ASCII Codes, or
+>> choosing specific colors to represent different things?
+Yes. Since we were writing chess, the '_' charcter with black or white
+backgrounds allows us to display the chess board. The "pieces" are either Light 
+Blue or Green to represent which player they belong to. The labels on the board
+and the timers are colored in Cyan to represent that they are not part of the
+board nor owned by a player. For similar reasons, errors (for invalid moves, etc.)
+are displayed in red.
+
+			  TIMER SUBSYSTEM
+			  ===============
+
+---- DATA STRUCTURES ----
+
+>> D1: What state does your timer subsystem manage?  Describe the variables
+>> or data structures that it maintains, and how they are used.
+
+---- ALGORITHMS ----
+
+>> D2: What abstraction does your timer code present to your main program?
+>> Briefly describe the higher-level operations you decided to implement.
+
+>> D3: Did you change the timer frequency from 100Hz?  If so, what did you
+>> change it to, and why?
+
+---- SYNCHRONIZATION ----
+
+>> D4: Given how your program handles timer events, is there any potential
+>> for timer interrupts to generate race conditions in updating your
+>> program's global state?  If so, what steps did you take to ensure that
+>> such situations cannot occur?
+
+			KEYBOARD SUBSYSTEM
+			==================
+
+---- DATA STRUCTURES ----
+
+>> E1: What state does your keyboard subsystem manage?  Describe the variables
+>> or data structures that it maintains, and how they are used.
+We store the keypresses and releases in a circular queue. It stores 100 bytes (subject 
+to change). 
+
+>> E2: How do your data structures handle keys with multi-byte scan-codes?
+Based on the comments we were given, a circular queue will handle the multibyte scan codes
+without any additional effort by storing them successively.
+
+---- ALGORITHMS ----
+
+>> E3: What abstraction does your keyboard code present to your main program?
+>> Briefly describe the higher-level operations you decided to implement.
+
+>> E4: Does your keyboard subsystem expose scan-codes directly to your main
+>> program, or does it preprocess them and expose other information to your
+>> main program?  If scan-code data is preprocessed, briefly describe what
+>> information is actually exposed, and how it is derived from scan-codes.
+
+---- SYNCHRONIZATION ----
+
+>> E5: Given how your keyboard interrupt handler operates, is there any
+>> potential for race conditions in updating the keyboard subsystem's
+>> internal state?  If so, what steps did you take to ensure that such
+>> situations cannot occur?
+
+>> E6: Given how your program handles keyboard events, is there any
+>> potential for keyboard interrupts to generate race conditions in updating
+>> your program's global state?  If so, what steps did you take to ensure
+>> that such situations cannot occur?
+
+---- RATIONALE ----
+
+>> E7: Why did you choose the design and data representation that your
+>> keyboard subsystem uses?  How is it suited to your program's overall
+>> operation?
+
+			  SURVEY QUESTIONS
+			  ================
+
+Answering these questions is optional, but it will help us improve the
+course in future years.  Feel free to tell us anything you want - these
+questions are just to spur your thoughts.  Also, feel free to be completely
+honest if there are issues with the assignment or the course - you won't be
+penalized.  We can't fix things until we know about them.  :-)
+
+>> In your opinion, was this assignment, or any of the parts of it, too
+>> easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Were there any parts of the assignment that you felt were unnecessarily
+>> tedious or pointless?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+I'm glad we were told to zero out the interrupt descriptor table.
+
+>> Do you have any suggestions for the instructor and/or TAs to more
+>> effectively assist students, either for future quarters or the remaining
+>> projects?
+
+>> Any other comments?
+
