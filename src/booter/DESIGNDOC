@@ -36,7 +36,7 @@ them.
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course instructors.
 
-Wikis for chess moves, stack exchange for python commands
+wiki.osdev, stack exchange
 
 			     PC BOOTER
 			     =========
@@ -62,7 +62,7 @@ Wrote parts of the chess game. Wrote timers.
 Bianca: Wrote and debugged parts of the game, helped with some of the initial timer
 / interrupt code
 
-Henry: Bootloader, interrupts, helped display board correctly
+Henry: Bootloader, interrupts, helped display board correctly and debug the game
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -94,6 +94,8 @@ The game has a board as global state, as well as timers the timers for both play
 The board contains what all of the pieces are and their information ie color, class, location, etc.
 The timers start at 30 minutes and tick downwards once a move has been played based 
 on who's turn it is.
+The game has a 2-d array of pieces as global state, as well as timers.
+Pieces are struct objects storing identity, color, and character to display
 
 ---- SYNCHRONIZATION ----
 
@@ -104,17 +106,20 @@ on who's turn it is.
 >> Similarly, when a keyboard interrupt occurs, what does your program do
 >> in response?
 When a keyboard interrupt is fired, we push the data into a circular queue.
+The keyboard interrupt get's the scancode for the key event, and puts the associated
+character into the character buffer if it is one we're interested in
 When a timer interrupt is fired, we add one to a global variable in the handler.
-When that timer hits 50, we know a second has passed (based on timing it
-against the host computer's HW clock). When that second passes,
-we tell the timer_decrement function of game.c which determines who's 
-turn it is and decrements the appropriate timer.
+The timer interrupt handler calls a c function that increments a static value
+until it hits a particular value, and when it hits that value it's set to 0
+and a function in game is called that decrements the timer for the player that
+is currently in it's move
+
 
 >> A5: Would you say your program relies on polling or busy-waiting anywhere
 >> to accomplish its tasks?  If so, what tasks?
-Yes. We wait on keyboard input. However, due to interrupts, the timer still 
-decrements. There is nothing to do without user input because all action occurs
-when moves are made.
+We poll for key input, in that every time round the main loop we ask the character
+buffer whether it has a character for us. However, the timer interrupt will still
+fire and decrease the timers regularly.
 
 ---- RATIONALE ----
 
@@ -123,6 +128,7 @@ when moves are made.
 We chose Chess because it would be possible to do in both text mode, and pixel mode.
 In addition, we all knew more or less how the pieces move/interact, and it seemed fairly
 logical. 
+We considered tic-tac-toe or go as well, but chess seemed a lot more interesting
 
 >> A7: Did your choice of project affect any of the specific implementation
 >> details of the various subsystems that you needed to use?  (For example,
@@ -142,7 +148,9 @@ let us print chars, strings and ints to specific locations on the screen.
 
 No. Standard libraries may have helped with string printing, but implementing
 short versions wasn't too difficult.
-
+Closest we came to something like that was that the circular queue required
+a little extra thought to implement without dynamic memory since we didn't
+have malloc
 			     BOOT SECTOR
 			     ===========
 
@@ -151,18 +159,28 @@ short versions wasn't too difficult.
 >> B1: How did you decide to store the Disk Address Packet?  Does the
 >> memory occupied by the DAP get reclaimed after it is used?  If not,
 >> why not?
+We just push the appropriate fields directly onto the stack and point 
+the interrupt at that memory. It doesn't get reclaimed since we don't
+care too much about saving memory, so we just let it sit where we made
+it forever
 
 >> B2: Does your bootloader pass any information to the main program?
 >> (If not, just say no.)  If so, what information is passed, and how
 >> is it passed?
+no
 
 ---- ALGORITHMS ----
 
 >> B3: Briefly describe how your bootloader brings your program into
 >> memory.  Does it perform one large load, or multiple smaller loads?
+In one big load we read in the maximum amount of memory we can before 
+overwriting the video buffer.
+
 
 >> B4: Did you add any BIOS calls to your bootloader to prepare for your
 >> main program?  (i.e. things that aren't available in protected mode)
+no
+
 
 			  VIDEO SUBSYSTEM
 			  ===============
@@ -175,12 +193,13 @@ short versions wasn't too difficult.
 >> documentation on the video system.)
 We stay in text mode. The video buffer starts at 0xB8000.
 Data is passed in as pairs of integers. The first represents the letter, 
-and the second the color.
+and the second the color (the different nibbles being used to give background
+and foreground color).
 
 >> C2: Does your video code maintain any variables or data structures to
 >> facilitate video output?  Briefly describe these values and their
 >> purposes here.
-ddNo, but it does have functions. These functions print integers, chars
+No, but it does have functions. These functions print integers, chars
 and strings to specific locations on the screen. This lets us print
 the prompts, timers and the board itself.
 
@@ -203,7 +222,7 @@ when we need to print labels and strings.
 Yes. Since we were writing chess, the '_' charcter with black or white
 backgrounds allows us to display the chess board. The "pieces" are either Light 
 Blue or Green to represent which player they belong to. The labels on the board
-and the timers are colored in Cyan to represent that they are not part of the
+and the timers are colored in other colors to represent that they are not part of the
 board nor owned by a player. For similar reasons, errors (for invalid moves, etc.)
 are displayed in red.
 
@@ -252,22 +271,29 @@ disable and reenable interrupts.
 
 >> E1: What state does your keyboard subsystem manage?  Describe the variables
 >> or data structures that it maintains, and how they are used.
-We store the keypresses and releases in a circular queue. It stores 100 bytes. 
+We store the keypresses and releases in a statically allocated circular queue. 
+It stores 100 bytes
 
 >> E2: How do your data structures handle keys with multi-byte scan-codes?
-Based on the comments we were given, a circular queue will handle the multibyte scan codes
-without any additional effort by storing them successively.
+When we get a multibyte scan code, it doesn't match with any of the scan codes
+we care about (the set of which is hardcoded in), so the nothing is put in the
+queue.
 
 ---- ALGORITHMS ----
 
 >> E3: What abstraction does your keyboard code present to your main program?
 >> Briefly describe the higher-level operations you decided to implement.
-We 
+
+The main program accesses the key queue via a pop function, and it initializes
+the key handler via init_keyboard
 
 >> E4: Does your keyboard subsystem expose scan-codes directly to your main
 >> program, or does it preprocess them and expose other information to your
 >> main program?  If scan-code data is preprocessed, briefly describe what
 >> information is actually exposed, and how it is derived from scan-codes.
+The handler maps the scancodes to chars with a hardcoded switch statement,
+with all scancodes except for the set we explicitly care about being mapped
+to '\0'. Then if the result is not '\0' it is pushed onto the queue
 
 ---- SYNCHRONIZATION ----
 
@@ -275,17 +301,27 @@ We
 >> potential for race conditions in updating the keyboard subsystem's
 >> internal state?  If so, what steps did you take to ensure that such
 >> situations cannot occur?
+Interrupts are disabled before any access to the queue and reenabled after
+so that the queue can't change in the middle of an access. There's no risk
+of simultaneous pushes or pops
 
 >> E6: Given how your program handles keyboard events, is there any
 >> potential for keyboard interrupts to generate race conditions in updating
 >> your program's global state?  If so, what steps did you take to ensure
 >> that such situations cannot occur?
+The key handler only affects the key queue, and pushes and pops are the only
+other access to the queue, and since there can be no interrupts handled while
+those are being called, there's no rist of race conditions
 
 ---- RATIONALE ----
 
 >> E7: Why did you choose the design and data representation that your
 >> keyboard subsystem uses?  How is it suited to your program's overall
 >> operation?
+It's a simple system with constant memory usage for buffering queues, and
+it makes it simple for the game to retrieve the most recent pressed char that
+it cares about
+
 
 			  SURVEY QUESTIONS
 			  ================
