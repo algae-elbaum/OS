@@ -52,12 +52,12 @@ which parts.
 
    Bianca: 12.5
    Henry: 15
-   Kleppppppps: 11
+   Kyle: 12
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 Kyle: Wrote preliminary code for interrupts, and keyboard. Worked on printing.
-Wrote parts of the chess game.
+Wrote parts of the chess game. Wrote timers.
 
 Bianca: Wrote and debugged parts of the game, helped with some of the initial timer
 / interrupt code
@@ -90,8 +90,10 @@ game is multiplayer only.
 >> perform its operations.  Don't focus on state managed within interrupt
 >> handlers; we will look at that later.  Rather, focus on state that is
 >> part of the game implementation itself.
-The game has a board as global state, as well as timers (???)
+The game has a board as global state, as well as timers the timers for both players.
 The board contains what all of the pieces are and their information ie color, class, location, etc.
+The timers start at 30 minutes and tick downwards once a move has been played based 
+on who's turn it is.
 
 ---- SYNCHRONIZATION ----
 
@@ -101,9 +103,18 @@ The board contains what all of the pieces are and their information ie color, cl
 >> of operations or updates that is performed within your program?
 >> Similarly, when a keyboard interrupt occurs, what does your program do
 >> in response?
+When a keyboard interrupt is fired, we push the data into a circular queue.
+When a timer interrupt is fired, we add one to a global variable in the handler.
+When that timer hits 50, we know a second has passed (based on timing it
+against the host computer's HW clock). When that second passes,
+we tell the timer_decrement function of game.c which determines who's 
+turn it is and decrements the appropriate timer.
 
 >> A5: Would you say your program relies on polling or busy-waiting anywhere
 >> to accomplish its tasks?  If so, what tasks?
+Yes. We wait on keyboard input. However, due to interrupts, the timer still 
+decrements. There is nothing to do without user input because all action occurs
+when moves are made.
 
 ---- RATIONALE ----
 
@@ -118,13 +129,19 @@ logical.
 >> if you implemented a scrolling game, did you implement specialized high-
 >> performance video code to scroll the screen?)
 
-Chess timers
+Chess timers meant that all our timer needed to do was signal another function 
+every second.
+Since we were able to print everything with text for the board, our video functions
+let us print chars, strings and ints to specific locations on the screen.
 
 >> A8: Did you run into any technical or resource limitations in the
 >> implementation of your program?  (For example, bootloader didn't fit,
 >> or a really useful standard library wasn't available, or you couldn't
 >> achieve the desired performance level, etc.)  If so, what steps did you
 >> take to try to overcome those limitations?
+
+No. Standard libraries may have helped with string printing, but implementing
+short versions wasn't too difficult.
 
 			     BOOT SECTOR
 			     ===========
@@ -163,7 +180,9 @@ and the second the color.
 >> C2: Does your video code maintain any variables or data structures to
 >> facilitate video output?  Briefly describe these values and their
 >> purposes here.
-No, but it does have functions.
+ddNo, but it does have functions. These functions print integers, chars
+and strings to specific locations on the screen. This lets us print
+the prompts, timers and the board itself.
 
 ---- ALGORITHMS ----
 
@@ -195,14 +214,24 @@ are displayed in red.
 
 >> D1: What state does your timer subsystem manage?  Describe the variables
 >> or data structures that it maintains, and how they are used.
+There is a single global counter variable. When it hits 50, we know a second has 
+passed, so we reset it to 0 and send a signal to the main function using the
+decrement timer function.
 
 ---- ALGORITHMS ----
 
 >> D2: What abstraction does your timer code present to your main program?
 >> Briefly describe the higher-level operations you decided to implement.
 
+The timer code calls the decrement_timer function of game.c. That function 
+determines who's turn it is. Depending on who's turn it is, the global
+turn timer counter decrements. 
+
 >> D3: Did you change the timer frequency from 100Hz?  If so, what did you
 >> change it to, and why?
+Not intentionally. However, based on emperical evidence, the timer is at 50 Hz.
+We don't need precise timing, so it doesn't really matter as long as we can 
+be precise to 1 second.
 
 ---- SYNCHRONIZATION ----
 
@@ -211,6 +240,11 @@ are displayed in red.
 >> program's global state?  If so, what steps did you take to ensure that
 >> such situations cannot occur?
 
+Whenever we want to know what the current time is, we need to disable interrupts
+to prevent the timer interrupt being called during the check. We do this
+by only checking the timers by using the get_timer1 and 2 functions which
+disable and reenable interrupts.
+
 			KEYBOARD SUBSYSTEM
 			==================
 
@@ -218,8 +252,7 @@ are displayed in red.
 
 >> E1: What state does your keyboard subsystem manage?  Describe the variables
 >> or data structures that it maintains, and how they are used.
-We store the keypresses and releases in a circular queue. It stores 100 bytes (subject 
-to change). 
+We store the keypresses and releases in a circular queue. It stores 100 bytes. 
 
 >> E2: How do your data structures handle keys with multi-byte scan-codes?
 Based on the comments we were given, a circular queue will handle the multibyte scan codes
@@ -229,6 +262,7 @@ without any additional effort by storing them successively.
 
 >> E3: What abstraction does your keyboard code present to your main program?
 >> Briefly describe the higher-level operations you decided to implement.
+We 
 
 >> E4: Does your keyboard subsystem expose scan-codes directly to your main
 >> program, or does it preprocess them and expose other information to your
