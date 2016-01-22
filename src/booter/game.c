@@ -4,6 +4,7 @@
 #include "interrupts.h"
 
 #define TIMER_START_TIME 18000 // Half hour of play is on the timer
+
 // Gotta write Chess or something
 // so we need an 8x8 board that needs to store data, so maybe store 
 // the data in an array of structs.
@@ -23,6 +24,9 @@ typedef struct
     int x;
     int y;
 } location;
+
+void bishop_path(location start, location stop, location * ans);
+void rook_path(location start, location stop, location * ans);
 
 piece board[8][8]; // row, col
 int timer_1 = TIMER_START_TIME;
@@ -222,7 +226,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
                 // check if it passes through any occupied spaces
                 location start;
                 location end;
-                location thru;
+                location thru[8];
                 start.x = x1;
                 start.y = y1;
                 end.x = x2;
@@ -233,6 +237,7 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
                 {
                     if (board[thru[i].x][thru[i].y].class != NONE)
                     {
+                        write_string(RED, BLACK, "invalid move, piece in the way", 0, 20);
                         return 0;
                     }
                 }
@@ -257,6 +262,25 @@ int is_legal_move(int x1, int y1, int x2, int y2, char turn_color)
         // i.e. if same x or y value
             if (x2 == x1 || y2 == y1)
             {
+                // check if it passes through any occupied spaces
+                location start;
+                location end;
+                location * thru;
+                start.x = x1;
+                start.y = y1;
+                end.x = x2;
+                end.y = y2;
+                rook_path(start, end, thru);
+                int i;
+                for (i = 0; thru[i].x != -1; i++)
+                {
+                    if (board[thru[i].x][thru[i].y].class != NONE)
+                    {
+                        write_string(RED, BLACK, "invalid move, piece in the way", 0, 20);
+                        return 0;
+                    }
+                }
+
                 return 1;
             }
             // all other cases (invalid move) fall through
@@ -411,6 +435,7 @@ void rook_path(location start, location stop, location * ans)
                 ans[k] = temp;
                 k ++;
             }
+        }
     }
     else
     {

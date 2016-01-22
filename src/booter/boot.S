@@ -59,7 +59,7 @@ boot_start:
     push $0x2000
     push $0x0000
     # Number of 512-byte sectors to read (2 byte member)
-    push $0x04c0 # Max size before hitting video buffer (and after that other important stuff??)
+    push $0x04c0 # Max size before hitting video buffer (and after that other important stuff?)
     # Unused/Size of packet (1 byte member and then another 1 byte member)
     push $0x0010 # 0 and then 16, being careful about little endianness
    
