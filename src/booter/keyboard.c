@@ -97,7 +97,7 @@ void init_keyboard(void)
     install_interrupt_handler(0x21, irq1_handler);
 }
 
-unsigned char key_map(unsigned char scancode)
+unsigned char key_map(unsigned int scancode)
 {
     switch(scancode)
     {
@@ -138,7 +138,7 @@ unsigned char key_map(unsigned char scancode)
 
 void handle_key_interrupt()
 {
-    unsigned char key = key_map(inb(KEYBOARD_PORT));
+    unsigned int key = key_map(inb(KEYBOARD_PORT));
     if (key != '\0')
         push_queue(key);
 }

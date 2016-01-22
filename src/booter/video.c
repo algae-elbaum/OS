@@ -71,7 +71,6 @@ void write_int(char char_color, char back_color, int to_print, int x, int y, int
 	{
 	temp /= 10;
         size ++;}
-    write_char(RED, BLACK, size + '0', 40, 0);
     while(i < size)
     {
         write_char(char_color, back_color, (to_print % 10)+'0', x - i, y);

@@ -55,13 +55,11 @@ void timer_handler()
 {
     static int counter = 0;
     counter ++;
-    if(counter == 100)//1193182)
+    if(counter == 50)//1193182)
     {
         counter = 0;
         decrement_timer();
     }
-    write_string(RED, BLACK, "asdf", 40,2);
-        write_int(RED, BLACK, counter, 40,3,7);
 }
 
 void init_timer(void) {
