@@ -50,7 +50,7 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
-   Bianca: 12.5
+   Bianca: 13.5
    Henry: 15
    Kyle: 12
 
@@ -59,7 +59,7 @@ which parts.
 Kyle: Wrote preliminary code for interrupts, and keyboard. Worked on printing.
 Wrote parts of the chess game. Wrote timers.
 
-Bianca: Wrote and debugged parts of the game, helped with some of the initial timer
+Bianca: Wrote and debugged parts of the chess game, helped with the timer
 / interrupt code
 
 Henry: Bootloader, interrupts, helped display board correctly and debug the game
@@ -90,7 +90,7 @@ game is multiplayer only.
 >> perform its operations.  Don't focus on state managed within interrupt
 >> handlers; we will look at that later.  Rather, focus on state that is
 >> part of the game implementation itself.
-The game has a board as global state, as well as timers the timers for both players.
+The game has a board as global state, as well as the timers for both players.
 The board contains what all of the pieces are and their information ie color, class, location, etc.
 The timers start at 30 minutes and tick downwards once a move has been played based 
 on who's turn it is.
@@ -106,8 +106,8 @@ Pieces are struct objects storing identity, color, and character to display
 >> Similarly, when a keyboard interrupt occurs, what does your program do
 >> in response?
 When a keyboard interrupt is fired, we push the data into a circular queue.
-The keyboard interrupt get's the scancode for the key event, and puts the associated
-character into the character buffer if it is one we're interested in
+The keyboard interrupt gets the scancode for the key event, and puts the associated
+character into the character buffer if it is one we're interested in.
 When a timer interrupt is fired, we add one to a global variable in the handler.
 The timer interrupt handler calls a c function that increments a static value
 until it hits a particular value, and when it hits that value it's set to 0
@@ -173,7 +173,7 @@ no
 
 >> B3: Briefly describe how your bootloader brings your program into
 >> memory.  Does it perform one large load, or multiple smaller loads?
-In one big load we read in the maximum amount of memory we can before 
+In one big load, we read in the maximum amount of memory we can before 
 overwriting the video buffer.
 
 
@@ -311,7 +311,7 @@ of simultaneous pushes or pops
 >> that such situations cannot occur?
 The key handler only affects the key queue, and pushes and pops are the only
 other access to the queue, and since there can be no interrupts handled while
-those are being called, there's no rist of race conditions
+those are being called, there's no risk of race conditions
 
 ---- RATIONALE ----
 
