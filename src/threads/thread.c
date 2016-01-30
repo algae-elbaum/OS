@@ -28,6 +28,10 @@ static struct list ready_list;
     when they are first scheduled and removed when they exit. */
 static struct list all_list;
 
+/*! List of all sleeping processes. When it's time for a process
+    in this list to wake up it is moved to ready_list. */
+static struct list timer_list;
+
 /*! Idle thread. */
 static struct thread *idle_thread;
 
@@ -87,6 +91,7 @@ void thread_init(void) {
     lock_init(&tid_lock);
     list_init(&ready_list);
     list_init(&all_list);
+    list_init(&timer_list);
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread();
@@ -124,6 +129,30 @@ void thread_tick(void) {
 #endif
     else
         kernel_ticks++;
+
+    /* March through timer_list decrementing the sleep_ticks of each thread.
+       If sleep_ticks is set to 0 for a thread, move it to ready_list.
+       ---- is this too much work for an interrupt handler to be doing? 
+            At any rate I think it would be worse for it to happen outside
+            handling ---- */
+
+    struct list_elem *curr;
+    struct thread *curr_t = NULL;
+    // Manually managing the iterator to make removing elements while iterating neater
+    for (curr = list_begin(&timer_list); curr != list_end(&timer_list);) 
+    {
+        curr_t = list_entry (curr, struct thread, timer_elem); 
+        curr = list_next(curr);
+        curr_t->sleep_ticks --;
+        if (curr_t->sleep_ticks <= 0)
+        {
+            // Move it over to ready queue
+            list_remove(&(curr_t->timer_elem));
+            list_push_back(&ready_list, &(curr_t->elem));
+            curr_t->status = THREAD_READY;
+        }
+
+    }
 
     /* Enforce preemption. */
     if (++thread_ticks >= TIME_SLICE)
@@ -284,6 +313,25 @@ void thread_yield(void) {
     intr_set_level(old_level);
 }
 
+/*! It's like thread_yield, but with sleeping */
+void thread_sleep(int64_t ticks) {
+    struct thread *cur = thread_current();
+    enum intr_level old_level;
+
+    ASSERT(!intr_context());
+    ASSERT(cur != idle_thread); // Sleeping the idle thread should be forbidden
+
+    old_level = intr_disable();
+
+    cur->sleep_ticks = ticks;
+    list_push_back(&timer_list, &cur->timer_elem);
+    cur->status = THREAD_BLOCKED;
+    
+    schedule();
+    intr_set_level(old_level);
+    
+}
+
 /*! Invoke function 'func' on all threads, passing along 'aux'.
     This function must be called with interrupts off. */
 void thread_foreach(thread_action_func *func, void *aux) {
@@ -402,6 +450,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
+    t->sleep_ticks = 0; // Redundant because of memset, but want it explicit
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();
