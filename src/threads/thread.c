@@ -483,6 +483,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
     t->sleep_ticks = 0; // Redundant because of memset, but want it explicit
+    list_init(&t->locks);
     t->blocking_lock = NULL;
     t->magic = THREAD_MAGIC;
 
