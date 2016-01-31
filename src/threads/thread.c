@@ -137,11 +137,10 @@ void thread_tick(void) {
             handling ---- */
 
     struct list_elem *curr;
-    struct thread *curr_t = NULL;
     // Manually managing the iterator to make removing elements while iterating neater
     for (curr = list_begin(&timer_list); curr != list_end(&timer_list);) 
     {
-        curr_t = list_entry (curr, struct thread, timer_elem); 
+        struct thread *curr_t = list_entry (curr, struct thread, timer_elem); 
         curr = list_next(curr);
         curr_t->sleep_ticks --;
         if (curr_t->sleep_ticks <= 0)
@@ -356,6 +355,39 @@ int thread_get_priority(void) {
     return thread_current()->priority;
 }
 
+/*! Add the lock to the current thread's list of locks */
+void thread_add_lock(struct list_elem *lock_elem)
+{
+    struct thread *current = thread_current();
+    list_push_back(&current->locks, lock_elem);
+    struct lock *lock_p = list_entry(lock_elem, struct lock, lock_elem);
+    if (lock_p->donation > current->priority)
+        current->priority = lock_p->donation;
+}
+
+void thread_remove_lock(struct list_elem *lock_elem)
+{
+    list_remove(lock_elem);
+    thread_refresh_priority();
+}
+
+/*! Set thread priority to max of base_priority and the priorities of the
+    locks it's holding. */
+void thread_refresh_priority()
+{
+    struct thread *current = thread_current();
+    struct list_elem *curr;
+    current->priority = current->base_priority;
+    for (curr = list_begin(&current->locks); curr != list_end(&current->locks);
+            curr = list_next(curr))
+    {
+        struct lock *curr_p = list_entry(curr, struct lock, lock_elem);
+        if (curr_p->donation > current->priority)
+            current->priority = curr_p->donation; 
+    }
+}
+
+
 /*! Sets the current thread's nice value to NICE. */
 void thread_set_nice(int nice UNUSED) {
     /* Not yet implemented. */
@@ -451,6 +483,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
     t->sleep_ticks = 0; // Redundant because of memset, but want it explicit
+    t->blocking_lock = NULL;
     t->magic = THREAD_MAGIC;
 
     old_level = intr_disable();

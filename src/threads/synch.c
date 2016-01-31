@@ -118,6 +118,8 @@ void sema_up(struct semaphore *sema) {
 }
 
 static void sema_test_helper(void *sema_);
+int max_donation(struct list *threads);
+void publish_priority_update(struct lock *lock_p);
 
 /*! Self-test for semaphores that makes control "ping-pong"
     between a pair of threads.  Insert calls to printf() to see
@@ -147,7 +149,45 @@ static void sema_test_helper(void *sema_) {
         sema_up(&sema[1]);
     }
 }
-
+
+/*! Report the priority of the thread in the list with highest priority.
+    Return -1 if the list is empty;
+  */
+int max_donation(struct list *threads)
+{
+    int max = 1;
+    struct list_elem *curr = NULL;
+    for (curr = list_begin(threads); curr != list_end(threads); 
+            curr = list_next(curr))
+    {
+        struct thread *curr_t = list_entry (curr, struct thread, elem);
+        if (curr_t->priority > max)
+            max = curr_t->priority;
+    } 
+    return max;
+}
+
+/*! Donate priority to lock_p and every lock complicit in blocking the
+    thread holding lock_p. Additionally updating the priorities of the
+    threads holding the locks*/
+void publish_priority_update(struct lock *lock_p)
+{
+    int priority = lock_p->donation;
+    lock_p->holder->priority = priority;
+    lock_p = lock_p->holder->blocking_lock;
+    // Would love to just recurse, but memory efficiency is sad :(
+    while (lock_p != NULL)
+    {
+        if (priority > lock_p->donation)
+        {
+            lock_p->donation = priority;
+            lock_p->holder->priority = priority;
+        }
+        lock_p = lock_p->holder->blocking_lock;
+    }
+}
+
+
 /*! Initializes LOCK.  A lock can be held by at most a single
     thread at any given time.  Our locks are not "recursive", that
     is, it is an error for the thread currently holding a lock to
@@ -168,6 +208,7 @@ void lock_init(struct lock *lock) {
 
     lock->holder = NULL;
     sema_init(&lock->semaphore, 1);
+    lock->donation = PRI_MIN;
 }
 
 /*! Acquires LOCK, sleeping until it becomes available if
@@ -179,12 +220,32 @@ void lock_init(struct lock *lock) {
     interrupts disabled, but interrupts will be turned back on if
     we need to sleep. */
 void lock_acquire(struct lock *lock) {
-    ASSERT(lock != NULL);
+    ASSERT(lock != NULL); 
     ASSERT(!intr_context());
     ASSERT(!lock_held_by_current_thread(lock));
-
+    
+    struct thread *current = thread_current();
+    // In case someone already has the lock, try to donate
+    if (lock->holder != NULL)
+    {
+        // Disable interrupts, concurrency here can lead to incorrect donation
+        enum intr_level old_level = intr_disable();
+        
+        if (lock->donation < current->priority)
+        {
+            lock->donation = current->priority;
+            publish_priority_update(lock);
+        }
+        current->blocking_lock = lock; 
+        intr_set_level(old_level);
+    }
     sema_down(&lock->semaphore);
-    lock->holder = thread_current();
+    lock->holder = current;
+    lock->holder->blocking_lock = NULL;
+    // Need to recalculate and apply donated priority
+    // My redundancy senses are tingling, but I'm 99% convinced it's necessary
+    lock->donation = max_donation(&lock->semaphore.waiters);
+    thread_add_lock(&lock->lock_elem); // Takes care of updating the thread priority
 }
 
 /*! Tries to acquires LOCK and returns true if successful or false
@@ -201,8 +262,13 @@ bool lock_try_acquire(struct lock *lock) {
 
     success = sema_try_down(&lock->semaphore);
     if (success)
-      lock->holder = thread_current();
-
+    {
+        lock->holder = thread_current();
+        // This next bit is in case something came along between this thread
+        // getting the lock and the lock owner being set
+        lock->donation = max_donation(&lock->semaphore.waiters);
+        thread_add_lock(&lock->lock_elem);
+    }
     return success;
 }
 
@@ -216,6 +282,7 @@ void lock_release(struct lock *lock) {
     ASSERT(lock_held_by_current_thread(lock));
 
     lock->holder = NULL;
+    thread_remove_lock(&lock->lock_elem); // Takes care of refreshing priority
     sema_up(&lock->semaphore);
 }
 
