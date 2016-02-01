@@ -68,7 +68,7 @@ void sema_down(struct semaphore *sema) {
 
     old_level = intr_disable();
     while (sema->value == 0) {
-        list_push_back(&sema->waiters, &thread_current()->elem);
+        sorted_add_thread(&sema->waiters, &thread_current()->elem);
         thread_block();
     }
     sema->value--;
@@ -118,8 +118,6 @@ void sema_up(struct semaphore *sema) {
 }
 
 static void sema_test_helper(void *sema_);
-int max_donation(struct list *threads);
-void publish_priority_update(struct lock *lock_p);
 
 /*! Self-test for semaphores that makes control "ping-pong"
     between a pair of threads.  Insert calls to printf() to see
@@ -153,24 +151,15 @@ static void sema_test_helper(void *sema_) {
 /*! Report the priority of the thread in the list with highest priority.
     Return -1 if the list is empty;
   */
-int max_donation(struct list *threads)
+static int max_donation(struct list *threads)
 {
-    int max = 1;
-    struct list_elem *curr = NULL;
-    for (curr = list_begin(threads); curr != list_end(threads); 
-            curr = list_next(curr))
-    {
-        struct thread *curr_t = list_entry (curr, struct thread, elem);
-        if (curr_t->priority > max)
-            max = curr_t->priority;
-    } 
-    return max;
+    list_entry(list_begin(threads), struct thread, elem)->priority;
 }
 
 /*! Donate priority to lock_p and every lock complicit in blocking the
     thread holding lock_p. Additionally updating the priorities of the
     threads holding the locks*/
-void publish_priority_update(struct lock *lock_p)
+static void publish_priority_update(struct lock *lock_p)
 {
     int priority = lock_p->donation;
     lock_p->holder->priority = priority;

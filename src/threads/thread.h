@@ -97,7 +97,7 @@ struct thread {
     uint8_t *stack;                     /*!< Saved stack pointer. */
     int priority;                       /*!< Priority (including donation). */
     int base_priority;                  /*!< Base priority. */
-    int64_t sleep_ticks;                /*!< Ticks left until it's time to wake up. */
+    int64_t wake_tick;                  /*!< Ticks left until it's time to wake up. */
     struct list_elem allelem;           /*!< List element for all threads list. */
     struct list_elem timer_elem;        /*!< List element for timer blocked list */
     /**@}*/
@@ -138,6 +138,7 @@ void thread_print_stats(void);
 typedef void thread_func(void *aux);
 tid_t thread_create(const char *name, int priority, thread_func *, void *);
 
+void sorted_add_thread(struct list *threads, struct list_elem *new_thread);
 void thread_block(void);
 void thread_unblock(struct thread *);
 

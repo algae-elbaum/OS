@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -130,24 +131,23 @@ void thread_tick(void) {
     else
         kernel_ticks++;
 
-    /* March through timer_list decrementing the sleep_ticks of each thread.
-       If sleep_ticks is set to 0 for a thread, move it to ready_list.
+    /* March through timer_list checking if the wake_tick of each thread
+       is the current tick, and if so making the thread ready.
        ---- is this too much work for an interrupt handler to be doing? 
             At any rate I think it would be worse for it to happen outside
             handling ---- */
-
+    int64_t current_tick = timer_ticks();
     struct list_elem *curr;
     // Manually managing the iterator to make removing elements while iterating neater
     for (curr = list_begin(&timer_list); curr != list_end(&timer_list);) 
     {
         struct thread *curr_t = list_entry (curr, struct thread, timer_elem); 
         curr = list_next(curr);
-        curr_t->sleep_ticks --;
-        if (curr_t->sleep_ticks <= 0)
+        if (curr_t->wake_tick == current_tick)
         {
             // Move it over to ready queue
             list_remove(&(curr_t->timer_elem));
-            list_push_back(&ready_list, &(curr_t->elem));
+            sorted_add_thread(&ready_list, &(curr_t->elem));
             curr_t->status = THREAD_READY;
         }
 
@@ -218,6 +218,29 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     return tid;
 }
 
+/* USES THREAD->ELEM FOR THE LIST ELEMENT */
+/*! Add new_thread to the list of threads. The list of threads should be sorted
+    by priority, and adding the new thread maintains that order. */
+void sorted_add_thread(struct list *threads, struct list_elem *new_thread)
+{
+    // Until the friday lecture is up, I don't know the macros and I don't
+    // remember the specifics of using barriers to make this safe. So for now
+    // at least we just disable interrupts
+    enum intr_level old_level = intr_disable();
+    struct list_elem *curr, *last_greater;
+    int new_thread_priority = list_entry(new_thread, struct thread, elem)->priority;
+    last_greater = curr = list_begin(threads);
+    for (; curr != list_end(threads); curr = list_next(curr))
+    {
+        struct thread *curr_t = list_entry(curr, struct thread, elem);
+        if (curr_t->priority < new_thread_priority)
+            break;
+        last_greater = curr;
+    }
+    list_insert(last_greater, new_thread);
+    intr_set_level(old_level);
+}
+
 /*! Puts the current thread to sleep.  It will not be scheduled
     again until awoken by thread_unblock().
 
@@ -245,7 +268,7 @@ void thread_unblock(struct thread *t) {
 
     old_level = intr_disable();
     ASSERT(t->status == THREAD_BLOCKED);
-    list_push_back(&ready_list, &t->elem);
+    sorted_add_thread(&ready_list, &t->elem);
     t->status = THREAD_READY;
     intr_set_level(old_level);
 }
@@ -306,7 +329,7 @@ void thread_yield(void) {
 
     old_level = intr_disable();
     if (cur != idle_thread) 
-        list_push_back(&ready_list, &cur->elem);
+        sorted_add_thread(&ready_list, &cur->elem);
     cur->status = THREAD_READY;
     schedule();
     intr_set_level(old_level);
@@ -322,7 +345,7 @@ void thread_sleep(int64_t ticks) {
 
     old_level = intr_disable();
 
-    cur->sleep_ticks = ticks;
+    cur->wake_tick = timer_ticks() +  ticks;
     list_push_back(&timer_list, &cur->timer_elem);
     cur->status = THREAD_BLOCKED;
     
@@ -482,7 +505,7 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
-    t->sleep_ticks = 0; // Redundant because of memset, but want it explicit
+    t->wake_tick = 0; // Redundant because of memset, but want it explicit
     list_init(&t->locks);
     t->blocking_lock = NULL;
     t->magic = THREAD_MAGIC;
@@ -586,7 +609,6 @@ static tid_t allocate_tid(void) {
 
     return tid;
 }
-
 /*! Offset of `stack' member within `struct thread'.
     Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
