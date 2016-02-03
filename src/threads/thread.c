@@ -23,7 +23,7 @@
 
 /*! List of processes in THREAD_READY state, that is, processes
     that are ready to run but not actually running. */
-static struct list ready_lists[PRI_MAX];
+static struct list ready_lists[PRI_MAX + 1];
 
 /*! List of all processes.  Processes are added to this list
     when they are first scheduled and removed when they exit. */
@@ -91,7 +91,7 @@ void thread_init(void) {
 
     lock_init(&tid_lock);
     int i;
-    for(i=0; i<PRI_MAX; i++)
+    for(i=0; i<=PRI_MAX; i++)
     {
         list_init(&(ready_lists[i]));
     }
@@ -575,7 +575,7 @@ static void * alloc_frame(struct thread *t, size_t size) {
     run queue is empty, return idle_thread. */
 static struct thread * next_thread_to_run(void) {
     int i;
-    for(i=63; i >=0; i--)
+    for(i = PRI_MAX; i >= 0; i--)
     {
         if (! list_empty(&ready_lists[i]))
         {
