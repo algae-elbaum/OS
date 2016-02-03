@@ -172,6 +172,11 @@ static void publish_priority_update(struct lock *lock_p)
             lock_p->donation = priority;
             lock_p->holder->priority = priority;
         }
+        else
+        {
+            break;
+        }
+        
         lock_p = lock_p->holder->blocking_lock;
     }
 }
