@@ -100,6 +100,8 @@ struct thread {
     int64_t wake_tick;                  /*!< Ticks left until it's time to wake up. */
     struct list_elem allelem;           /*!< List element for all threads list. */
     struct list_elem timer_elem;        /*!< List element for timer blocked list */
+    int niceness;			/*!< Niceness value */
+    int recent_cpu;                     /*!< Measure of how recently the function has had the CPU */
     /**@}*/
 
     struct list locks;                  /*!< List of locks this thread holds */
@@ -138,7 +140,7 @@ void thread_print_stats(void);
 typedef void thread_func(void *aux);
 tid_t thread_create(const char *name, int priority, thread_func *, void *);
 
-void sorted_add_thread(struct list *threads, struct list_elem *new_thread);
+void sorted_add_thread(struct list_elem *new_thread);
 void thread_block(void);
 void thread_unblock(struct thread *);
 
@@ -154,6 +156,8 @@ void thread_sleep(int64_t ticks);
 typedef void thread_action_func(struct thread *t, void *aux);
 
 void thread_foreach(thread_action_func *, void *);
+
+void recalc_priorities(void);
 
 int thread_get_priority(void);
 void thread_set_priority(int);
