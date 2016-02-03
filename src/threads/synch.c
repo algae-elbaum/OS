@@ -153,7 +153,7 @@ static void sema_test_helper(void *sema_) {
   */
 static int max_donation(struct list *threads)
 {
-    list_entry(list_begin(threads), struct thread, elem)->priority;
+    return list_entry(list_begin(threads), struct thread, elem)->priority;
 }
 
 /*! Donate priority to lock_p and every lock complicit in blocking the

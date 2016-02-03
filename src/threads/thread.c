@@ -136,22 +136,25 @@ void thread_tick(void) {
        ---- is this too much work for an interrupt handler to be doing? 
             At any rate I think it would be worse for it to happen outside
             handling ---- */
+    // Disable interrupts to make sure this all happens within a single tick
+    enum intr_level old_level = intr_disable();
     int64_t current_tick = timer_ticks();
     struct list_elem *curr;
     // Manually managing the iterator to make removing elements while iterating neater
     for (curr = list_begin(&timer_list); curr != list_end(&timer_list);) 
     {
-        struct thread *curr_t = list_entry (curr, struct thread, timer_elem); 
+        struct thread *curr_t = list_entry (curr, struct thread, elem); 
         curr = list_next(curr);
-        if (curr_t->wake_tick == current_tick)
+        if (curr_t->wake_tick <= current_tick)
         {
             // Move it over to ready queue
-            list_remove(&(curr_t->timer_elem));
+            list_remove(&curr_t->elem);
             sorted_add_thread(&ready_list, &(curr_t->elem));
             curr_t->status = THREAD_READY;
         }
 
     }
+    intr_set_level(old_level);
 
     /* Enforce preemption. */
     if (++thread_ticks >= TIME_SLICE)
@@ -346,12 +349,10 @@ void thread_sleep(int64_t ticks) {
     old_level = intr_disable();
 
     cur->wake_tick = timer_ticks() +  ticks;
-    list_push_back(&timer_list, &cur->timer_elem);
+    sorted_add_thread(&timer_list, &cur->elem);
     cur->status = THREAD_BLOCKED;
-    
     schedule();
     intr_set_level(old_level);
-    
 }
 
 /*! Invoke function 'func' on all threads, passing along 'aux'.
