@@ -406,8 +406,7 @@ void thread_set_priority(int new_priority) {
     // set current thread priority to input priority
     thread_current()->priority = new_priority;
 
-    // yield if current thread priority no longer highest
-    // static struct list ready_lists[PRI_MAX + 1];
+    // find highest priority
     int i;
     for (i = PRI_MAX; i > 0; i--)
     {
@@ -418,6 +417,7 @@ void thread_set_priority(int new_priority) {
         }
     }
 
+    // yield if current thread priority no longer highest
     if (thread_current()->priority < highest_priority)
     {
         thread_yield();
