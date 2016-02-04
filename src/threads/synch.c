@@ -162,6 +162,8 @@ static int max_donation(struct list *threads)
 static void publish_priority_update(struct lock *lock_p)
 {
     int priority = lock_p->donation;
+    if (priority <= lock_p->holder>priority)
+        return;
     lock_p->holder->priority = priority;
     lock_p = lock_p->holder->blocking_lock;
     // Would love to just recurse, but memory efficiency is sad :(
