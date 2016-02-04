@@ -141,7 +141,7 @@ void recalc_priorities()
         curr = list_pop_front(&all_readys);
         struct thread *curr_t = list_entry(curr, struct thread, elem);
         // TODO need to use next_ready's recent cpu, not the current thread which is what this does
-        curr_t->priority = PRI_MAX - (thread_get_recent_cpu() / 4) - (2*curr_t->niceness);
+        curr_t->priority = PRI_MAX - (thread_get_recent_cpu_2(curr_t) / 4) - (2*curr_t->niceness);
         sorted_add_thread(curr);
     }
     intr_set_level(old_level);
@@ -401,7 +401,28 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
+    int highest_priority;
+
+    // set current thread priority to input priority
     thread_current()->priority = new_priority;
+
+    // find highest priority
+    int i;
+    for (i = PRI_MAX; i > 0; i--)
+    {
+        if (!list_empty(&ready_lists[i]))
+        {
+            highest_priority = i;
+            break;
+        }
+    }
+
+    // yield if current thread priority no longer highest
+    if (thread_current()->priority < highest_priority)
+    {
+        thread_yield();
+    }
+
 }
 
 /*! Returns the current thread's priority. */
@@ -409,7 +430,7 @@ int thread_get_priority(void) {
     return thread_current()->priority;
 }
 
-/*! Add the lock to the current thread's list of locks */
+/*! Add the lock to then current thread's list of locks */
 void thread_add_lock(struct list_elem *lock_elem)
 {
     struct thread *current = thread_current();
@@ -465,12 +486,18 @@ int thread_get_load_avg(void) {
     return curr_load_avg;
 }
 
-/*! Returns 100 times the current thread's recent_cpu value. */
+/*! Returns 100 times the given thread's recent_cpu value. */
 int thread_get_recent_cpu(void) {
     int recent = thread_current()->recent_cpu;
     int load_avg = thread_get_load_avg();
     thread_current()->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+thread_current()->niceness;
     return thread_current()->recent_cpu;
+}
+int thread_get_recent_cpu_2(struct thread *curr_thread) {
+    int recent = curr_thread->recent_cpu;
+    int load_avg = thread_get_load_avg();
+    curr_thread->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+curr_thread->niceness;
+    return curr_thread->recent_cpu;
 }
 
 /*! Idle thread.  Executes when no other thread is ready to run.
