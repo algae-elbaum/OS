@@ -116,8 +116,10 @@ void sema_up(struct semaphore *sema) {
         struct thread * best_thread = list_entry(list_front(&sema->waiters), struct thread, elem);
         struct list_elem * best_elem = list_front(&sema->waiters);
         struct list_elem *curr;
+        // iterate through waiters
         for (curr = list_begin(&sema->waiters); curr != list_end(&sema->waiters); curr = list_next(curr)) 
         {
+            // find highest priority thread
             struct thread *curr_t = list_entry (curr, struct thread, elem); 
             if(curr_t->priority > best_thread->priority)
             {
@@ -125,9 +127,11 @@ void sema_up(struct semaphore *sema) {
                 best_thread = curr_t;
             }
         }
+        // remove that element
         list_remove(best_elem);
         thread_unblock(best_thread);
     }
+    // iterate
     sema->value++;
     intr_set_level(old_level);
 }
@@ -177,6 +181,8 @@ static int max_donation(struct list *threads)
 static void publish_priority_update(struct lock *lock_p)
 {
     int priority = lock_p->donation;
+    if (priority <= lock_p->holder>priority)
+        return;
     lock_p->holder->priority = priority;
     lock_p = lock_p->holder->blocking_lock;
     // Would love to just recurse, but memory efficiency is sad :(
