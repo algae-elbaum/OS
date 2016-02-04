@@ -133,7 +133,7 @@ void recalc_priorities()
     {
         while (! list_empty(&ready_lists[i]))
         {
-            list_push_back(&all_readys, list_pop_front(&ready_lists));
+            list_push_back(&all_readys, list_pop_front(&ready_lists[i]));
         }
     }
     while (! list_empty(&all_readys))
