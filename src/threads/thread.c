@@ -141,7 +141,7 @@ void recalc_priorities()
         curr = list_pop_front(&all_readys);
         struct thread *curr_t = list_entry(curr, struct thread, elem);
         // TODO need to use next_ready's recent cpu, not the current thread which is what this does
-        curr_t->priority = PRI_MAX - (thread_get_recent_cpu() / 4) - (2*curr_t->niceness);
+        curr_t->priority = PRI_MAX - (thread_get_recent_cpu_2(curr_t) / 4) - (2*curr_t->niceness);
         sorted_add_thread(curr);
     }
     intr_set_level(old_level);
@@ -465,12 +465,18 @@ int thread_get_load_avg(void) {
     return curr_load_avg;
 }
 
-/*! Returns 100 times the current thread's recent_cpu value. */
+/*! Returns 100 times the given thread's recent_cpu value. */
 int thread_get_recent_cpu(void) {
     int recent = thread_current()->recent_cpu;
     int load_avg = thread_get_load_avg();
     thread_current()->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+thread_current()->niceness;
     return thread_current()->recent_cpu;
+}
+int thread_get_recent_cpu_2(struct thread *curr_thread) {
+    int recent = curr_thread->recent_cpu;
+    int load_avg = thread_get_load_avg();
+    curr_thread->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+curr_thread->niceness;
+    return curr_thread->recent_cpu;
 }
 
 /*! Idle thread.  Executes when no other thread is ready to run.

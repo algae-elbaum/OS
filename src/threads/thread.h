@@ -168,6 +168,7 @@ void thread_refresh_priority(void);
 int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
+int thread_get_recent_cpu_2(struct thread *);
 int thread_get_load_avg(void);
 
 #endif /* threads/thread.h */
