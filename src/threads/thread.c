@@ -140,7 +140,6 @@ void recalc_priorities()
     {
         curr = list_pop_front(&all_readys);
         struct thread *curr_t = list_entry(curr, struct thread, elem);
-        // TODO need to use next_ready's recent cpu, not the current thread which is what this does
         curr_t->priority = PRI_MAX - (thread_get_recent_cpu_2(curr_t) / 4) - (2*curr_t->niceness);
         sorted_add_thread(curr);
     }
@@ -370,13 +369,13 @@ void thread_yield(void) {
 
 /*! It's like thread_yield, but with sleeping */
 void thread_sleep(int64_t ticks) {
-    struct thread *cur = thread_current();
     enum intr_level old_level;
 
     ASSERT(!intr_context());
-    ASSERT(cur != idle_thread); // Sleeping the idle thread should be forbidden
 
     old_level = intr_disable();
+    struct thread *cur = thread_current();
+    ASSERT(cur != idle_thread); // Sleeping the idle thread should be forbidden
 
     cur->wake_tick = timer_ticks() +  ticks;
     list_push_back(&timer_list, &cur->elem);
@@ -401,7 +400,7 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-    int highest_priority;
+    int highest_priority=0;
 
     // set current thread priority to input priority
     thread_current()->priority = new_priority;
@@ -488,10 +487,7 @@ int thread_get_load_avg(void) {
 
 /*! Returns 100 times the given thread's recent_cpu value. */
 int thread_get_recent_cpu(void) {
-    int recent = thread_current()->recent_cpu;
-    int load_avg = thread_get_load_avg();
-    thread_current()->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+thread_current()->niceness;
-    return thread_current()->recent_cpu;
+    return thread_current()->recent_cpu; 
 }
 int thread_get_recent_cpu_2(struct thread *curr_thread) {
     int recent = curr_thread->recent_cpu;
