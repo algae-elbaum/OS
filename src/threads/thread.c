@@ -129,23 +129,20 @@ void recalc_priorities()
     int i;
     struct list all_readys; 
     struct list_elem *curr;
-    for(i=0; i<PRI_MAX; i++)
+    for(i=0; i<=PRI_MAX; i++)
     {
-        for (curr = list_begin(&ready_lists[i]); curr != list_end(&ready_lists[i]);) 
+        while (! list_empty(&ready_lists[i]))
         {
-            struct list_elem *temp = curr; 
-            curr = list_next(curr);
-            list_push_back(&all_readys, temp);
+            list_push_back(&all_readys, list_pop_front(&ready_lists));
         }
     }
-    for (curr = list_begin(&all_readys); curr != list_end(&all_readys);) 
+    while (! list_empty(&all_readys))
     {
-        struct list_elem *temp = curr; 
-        int prior = PRI_MAX - (thread_get_recent_cpu() / 4) - (2*thread_get_nice());
-        curr = list_next(curr);
-        list_entry(temp, struct thread, elem)->priority = prior;
-
-        list_push_back(&ready_lists[prior], temp);
+        curr = list_pop_front(&all_readys);
+        struct thread *curr_t = list_entry(curr, struct thread, elem);
+        // TODO need to use next_ready's recent cpu, not the current thread which is what this does
+        curr_t->priority = PRI_MAX - (thread_get_recent_cpu() / 4) - (2*curr_t->niceness);
+        sorted_add_thread(curr);
     }
     intr_set_level(old_level);
 }
