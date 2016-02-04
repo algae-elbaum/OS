@@ -401,7 +401,28 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
+    int highest_priority;
+
+    // set current thread priority to input priority
     thread_current()->priority = new_priority;
+
+    // yield if current thread priority no longer highest
+    // static struct list ready_lists[PRI_MAX + 1];
+    int i;
+    for (i = PRI_MAX; i > 0; i--)
+    {
+        if (!list_empty(&ready_lists[i]))
+        {
+            highest_priority = i;
+            break;
+        }
+    }
+
+    if (thread_current()->priority < highest_priority)
+    {
+        thread_yield();
+    }
+
 }
 
 /*! Returns the current thread's priority. */
@@ -409,7 +430,7 @@ int thread_get_priority(void) {
     return thread_current()->priority;
 }
 
-/*! Add the lock to the current thread's list of locks */
+/*! Add the lock to then current thread's list of locks */
 void thread_add_lock(struct list_elem *lock_elem)
 {
     struct thread *current = thread_current();
