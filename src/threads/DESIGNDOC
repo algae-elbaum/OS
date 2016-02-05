@@ -9,6 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Henry Elbaum  helbaum@caltech.edu
+Kyle Seipp    kseipp@caltech.edu
 >> Specify how many late tokens you are using on this assignment:  
 
 >> What is the Git repository and commit hash for your submission?
@@ -43,6 +44,7 @@ which parts.
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
    Henry Elbaun: Alarm clock, priority donation
+   Kyle Seipp: BSD Scheduler, some work on interrupts
 
                  ALARM CLOCK
                  ===========
@@ -164,7 +166,52 @@ TODO SOMEONE TALK ABOUT HOW ITS ENSURED THAT THE HIGHEST PRIORITY WAITING THREAD
 >> C1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+struct thread {
+    /*! Owned by thread.c. */
+    /**@{*/
+    tid_t tid;                          /*!< Thread identifier. */
+    enum thread_status status;          /*!< Thread state. */
+    char name[16];                      /*!< Name (for debugging purposes). */
+    uint8_t *stack;                     /*!< Saved stack pointer. */
+    int priority;                       /*!< Priority (including donation). */
+    int base_priority;                  /*!< Base priority. */
+    int64_t wake_tick;                  /*!< Ticks left until it's time to wake up. */
+    struct list_elem allelem;           /*!< List element for all threads list. */
+    struct list_elem timer_elem;        /*!< List element for timer blocked list */
+    int niceness;			/*!< Niceness value */
+    int recent_cpu;                     /*!< Measure of how recently the function has had the CPU */
+    /**@}*/
 
+    struct list locks;                  /*!< List of locks this thread holds */
+    struct lock *blocking_lock;         /*!< Thread which this thread is waiting on for a lock. */
+
+    /*! Shared between thread.c and synch.c. */
+    /**@{*/
+    struct list_elem elem;              /*!< List element. */
+    /**@}*/
+
+
+#ifdef USERPROG
+    /*! Owned by userprog/process.c. */
+    /**@{*/
+    uint32_t *pagedir;                  /*!< Page directory. */
+    /**@{*/
+#endif
+
+    /*! Owned by thread.c. */
+    /**@{*/
+    unsigned magic;                     /* Detects stack overflow. */
+    /**@}*/
+};
+
+We use niceness and recent_cpu so that we can store each threads corresponding
+values. Let's us compute the updated priority.
+
+
+static struct list ready_lists[PRI_MAX + 1];
+
+We are using 64 lists so that we have a queue for each priority. This makes keeping track
+of which thread is next in the priority easier.
 ---- ALGORITHMS ----
 
 >> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
@@ -172,23 +219,29 @@ TODO SOMEONE TALK ABOUT HOW ITS ENSURED THAT THE HIGHEST PRIORITY WAITING THREAD
 >> scheduling decision and the priority and recent_cpu values for each
 >> thread after each given number of timer ticks:
 
-timer  recent_cpu    priority   thread
-ticks   A   B   C   A   B   C   to run
------  --  --  --  --  --  --   ------
- 0
- 4
- 8
-12
-16
-20
-24
-28
-32
-36
+timer  recent_cpu     priority   thread
+ticks  A    B    C    A   B   C   to run
+-----  --   --   --   --  --  --   ------
+ 0     0    0    0    63  61  59    A 
+ 4     4    0    0    62  61  59    A
+ 8     8    0    0    61  61  59    A
+12     12   0    0    60  61  59    B
+16     12   4    0    60  60  59    B
+20     12   8    0    60  59  59    A
+24     16   8    0    59  59  59    A
+28     20   8    0    58  59  59    B
+32     20   12   0    58  58  59    C
+36     20   12   4    58  58  58    A
 
 >> C3: Did any ambiguities in the scheduler specification make values
 >> in the table uncertain?  If so, what rule did you use to resolve
 >> them?  Does this match the behavior of your scheduler?
+
+What do we do in case of a tie? I chose to continue using the current thread
+in case of a tie. If neither thread is current, we choose the thread with the lowest
+niceness.
+Our scheduler should choose the next thread based on the order in which they were 
+enqueued.
 
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?

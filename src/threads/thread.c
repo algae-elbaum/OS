@@ -153,9 +153,17 @@ void thread_tick(void) {
     if(thread_mlfqs)
     {
 	static int tick_level = 0;
+        static int tick_level_sec = 0;
+        if(tick_level_sec == 100)
+        {
+            load_average_update();
+            thread_foreach(*thread_update_recent_cpu, NULL);
+        }
+        tick_level_sec ++;
 	if(tick_level == 4)
 	{
 	    tick_level = 0;
+            t->recent_cpu ++; 
 	    recalc_priorities();
 	}
 	tick_level ++;
@@ -474,6 +482,9 @@ int thread_get_nice(void) {
 
 /*! Returns 100 times the system load average. */
 int thread_get_load_avg(void) {
+    return curr_load_avg;
+}
+void load_average_update(void) {
      // We ned to get the n_ready_threads
     int i;
     int n_ready_threads = 0;
@@ -482,7 +493,6 @@ int thread_get_load_avg(void) {
         n_ready_threads += (int) list_size(&ready_lists[i]);
     } 
     curr_load_avg = 100*(59*curr_load_avg + n_ready_threads)/60;
-    return curr_load_avg;
 }
 
 /*! Returns 100 times the given thread's recent_cpu value. */
@@ -490,10 +500,12 @@ int thread_get_recent_cpu(void) {
     return thread_current()->recent_cpu; 
 }
 int thread_get_recent_cpu_2(struct thread *curr_thread) {
+    return curr_thread->recent_cpu;
+}
+void thread_update_recent_cpu(struct thread *curr_thread) {
     int recent = curr_thread->recent_cpu;
     int load_avg = thread_get_load_avg();
     curr_thread->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+curr_thread->niceness;
-    return curr_thread->recent_cpu;
 }
 
 /*! Idle thread.  Executes when no other thread is ready to run.
