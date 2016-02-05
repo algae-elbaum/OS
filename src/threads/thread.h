@@ -172,7 +172,6 @@ int thread_get_recent_cpu(void);
 int thread_get_recent_cpu_2(struct thread *);
 int thread_get_load_avg(void);
 void load_average_update(void);
-void thread_update_recent_cpu(struct thread *curr_thread);
 
 #endif /* threads/thread.h */
 
