@@ -141,6 +141,7 @@ typedef void thread_func(void *aux);
 tid_t thread_create(const char *name, int priority, thread_func *, void *);
 
 void sorted_add_thread(struct list_elem *new_thread);
+void resort_thread(struct thread *t);
 void thread_block(void);
 void thread_unblock(struct thread *);
 

@@ -109,6 +109,7 @@ void sema_up(struct semaphore *sema) {
     ASSERT(sema != NULL);
 
     old_level = intr_disable();
+    sema->value++;
     if (!list_empty(&sema->waiters)) {
 
         // We don't just want to pop from the front, but instead
@@ -130,9 +131,10 @@ void sema_up(struct semaphore *sema) {
         // remove that element
         list_remove(best_elem);
         thread_unblock(best_thread);
+        if (best_thread->priority > thread_current()->priority)
+            thread_yield();
     }
     // iterate
-    sema->value++;
     intr_set_level(old_level);
 }
 
@@ -168,11 +170,22 @@ static void sema_test_helper(void *sema_) {
 }
 
 /*! Report the priority of the thread in the list with highest priority.
-    Return -1 if the list is empty;
+    Return PRI_MIN if the list is empty;
   */
 static int max_donation(struct list *threads)
 {
-    return list_entry(list_begin(threads), struct thread, elem)->priority;
+    int max = PRI_MIN;
+        struct list_elem *curr;
+        for (curr = list_begin(threads); curr != list_end(threads); curr = list_next(curr)) 
+        {
+            // find highest priority thread
+            struct thread *curr_t = list_entry (curr, struct thread, elem); 
+            if(curr_t->priority > max)
+            {
+                max = curr_t->priority;
+            }
+        }
+    return max;
 }
 
 /*! Donate priority to lock_p and every lock complicit in blocking the
@@ -181,9 +194,10 @@ static int max_donation(struct list *threads)
 static void publish_priority_update(struct lock *lock_p)
 {
     int priority = lock_p->donation;
-    if (priority <= lock_p->holder>priority)
+    if (priority <= lock_p->holder->priority)
         return;
     lock_p->holder->priority = priority;
+    resort_thread(lock_p->holder);
     lock_p = lock_p->holder->blocking_lock;
     // Would love to just recurse, but memory efficiency is sad :(
     while (lock_p != NULL)
@@ -192,6 +206,7 @@ static void publish_priority_update(struct lock *lock_p)
         {
             lock_p->donation = priority;
             lock_p->holder->priority = priority;
+            resort_thread(lock_p->holder);
         }
         else
         {

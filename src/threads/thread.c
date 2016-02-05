@@ -268,7 +268,7 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
 
     /* Add to run queue. */
     thread_unblock(t);
-
+    thread_yield();
     return tid;
 }
 
@@ -279,6 +279,12 @@ void sorted_add_thread(struct list_elem *new_thread)
 {
     int new_thread_priority = list_entry(new_thread, struct thread, elem)->priority;
     list_push_back(&ready_lists[new_thread_priority], new_thread);
+}
+
+void resort_thread(struct thread *t)
+{
+    list_remove(&t->elem);
+    list_push_back(&ready_lists[t->priority], &t->elem);
 }
 
 /*! Puts the current thread to sleep.  It will not be scheduled
@@ -408,14 +414,21 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
-    int highest_priority=0;
+    enum intr_level old_level = intr_disable();
+
+    ASSERT(!intr_context());
+
+
+
 
     // set current thread priority to input priority
-    thread_current()->priority = new_priority;
+    thread_current()->base_priority = new_priority;
+    thread_refresh_priority();
 
     // find highest priority
+    int highest_priority=0;
     int i;
-    for (i = PRI_MAX; i > 0; i--)
+    for (i = PRI_MAX; i >= 0; i--)
     {
         if (!list_empty(&ready_lists[i]))
         {
@@ -430,6 +443,7 @@ void thread_set_priority(int new_priority) {
         thread_yield();
     }
 
+    intr_set_level(old_level);
 }
 
 /*! Returns the current thread's priority. */
@@ -488,7 +502,7 @@ void load_average_update(void) {
      // We ned to get the n_ready_threads
     int i;
     int n_ready_threads = 0;
-    for(i=0; i<PRI_MAX; i++)
+    for(i=0; i<=PRI_MAX; i++)
     {
         n_ready_threads += (int) list_size(&ready_lists[i]);
     } 
