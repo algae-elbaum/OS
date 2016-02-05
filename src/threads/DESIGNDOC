@@ -10,13 +10,15 @@
 
 Henry Elbaum  helbaum@caltech.edu
 Kyle Seipp    kseipp@caltech.edu
+Bianca Ray Avalani  brayaval@caltech.edu
 >> Specify how many late tokens you are using on this assignment:  
+1
 
 >> What is the Git repository and commit hash for your submission?
    (You only need to include the commit-hash in the file you submit
    on Moodle.)
 
-   Repository URL:  
+   Repository URL:  login.cms.caltech.edu:/cs/courses/cs124/teams/ComedicLuddites
    commit ...
 
 ---- PRELIMINARIES ----
@@ -40,11 +42,14 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
    Henry Elbaum: 18
+   Bianca: 
+   Kyle: 
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
    Henry Elbaun: Alarm clock, priority donation
    Kyle Seipp: BSD Scheduler, some work on interrupts
+   Bianca: Priority scheduling, helped with concurrency, locks
 
                  ALARM CLOCK
                  ===========
@@ -96,9 +101,9 @@ Interrupts are disabled around the iteration through timer_list
 >> A6: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
-I considered using a countdown integer and then waking a thread when its
+We considered using a countdown integer and then waking a thread when its
 countdown is <= 0. But then I reread the slides and realized that was making
-the timer do a little bit of extra computation. I also thought about having 
+the timer do a little bit of extra computation. We also thought about having 
 the iteration through timer_list happen outside of the timer interrupt somehow,
 but I don't think that would actually help, since we'll be really sad if
 anything interrupts the iteration, so interrupts ought be turned off, and then
