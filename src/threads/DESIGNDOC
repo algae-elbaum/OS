@@ -167,6 +167,13 @@ Locks
 >> B7: Why did you choose this design?  In what ways is it superior to
 >> another design you considered?
 
+For thread_set_priority, we followed a fairly standard design in order to find
+the highest priority, then yield if the current thread's priority is less than that.
+For thread_get_priority, since priority donation was implemented separately from the 
+priority scheduling, thread_get_priority does not need to check if priority donation
+is implemented - that is done elsewhere. We did not actively consider other
+designs as priority donation was implemented first, before scheduling.
+
               ADVANCED SCHEDULER
               ==================
 
