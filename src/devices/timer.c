@@ -42,7 +42,6 @@ void timer_init(void) {
 /*! Calibrates loops_per_tick, used to implement brief delays. */
 void timer_calibrate(void) {
     unsigned high_bit, test_bit;
-
     ASSERT(intr_get_level() == INTR_ON);
     printf("Calibrating timer...  ");
 

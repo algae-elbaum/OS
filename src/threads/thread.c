@@ -74,6 +74,7 @@ static void *alloc_frame(struct thread *, size_t size);
 static void schedule(void);
 void thread_schedule_tail(struct thread *prev);
 static tid_t allocate_tid(void);
+static void thread_update_recent_cpu(struct thread *curr_thread, void *aux);
 
 /*! Initializes the threading system by transforming the code
     that's currently running into a thread.  This can't work in
@@ -129,6 +130,7 @@ void recalc_priorities()
     int i;
     struct list all_readys; 
     struct list_elem *curr;
+    list_init(&all_readys); // Hey Kyle, turns out initializing your lists is pretty important ;). -M@
     for(i=0; i<=PRI_MAX; i++)
     {
         while (! list_empty(&ready_lists[i]))
@@ -157,7 +159,7 @@ void thread_tick(void) {
         if(tick_level_sec == 100)
         {
             load_average_update();
-            thread_foreach(*thread_update_recent_cpu, NULL);
+            thread_foreach(thread_update_recent_cpu, NULL);
         }
         tick_level_sec ++;
 	if(tick_level == 4)
@@ -414,6 +416,9 @@ void thread_foreach(thread_action_func *func, void *aux) {
 
 /*! Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) {
+    if(thread_mlfqs)
+    { return; }
+
     enum intr_level old_level = intr_disable();
 
     ASSERT(!intr_context());
@@ -445,6 +450,8 @@ void thread_set_priority(int new_priority) {
 
 /*! Returns the current thread's priority. */
 int thread_get_priority(void) {
+    if(thread_mlfqs)
+    { return thread_current()->base_priority; }
     return thread_current()->priority;
 }
 
@@ -513,7 +520,7 @@ int thread_get_recent_cpu(void) {
 int thread_get_recent_cpu_2(struct thread *curr_thread) {
     return curr_thread->recent_cpu;
 }
-void thread_update_recent_cpu(struct thread *curr_thread) {
+static void thread_update_recent_cpu(struct thread *curr_thread, void *aux) {
     int recent = curr_thread->recent_cpu;
     int load_avg = thread_get_load_avg();
     curr_thread->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+curr_thread->niceness;
@@ -589,7 +596,10 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     t->status = THREAD_BLOCKED;
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
-    t->priority = priority;
+    if (! thread_mlfqs)
+    {
+        t->priority = priority;
+    }
     t->base_priority = priority;
     t->wake_tick = 0; // Redundant because of memset, but want it explicit
     list_init(&t->locks);
