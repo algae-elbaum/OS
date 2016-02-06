@@ -14,6 +14,7 @@
 #include "devices/timer.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include <stdio.h>
 #endif
 
 /*! Random value for struct thread's `magic' member.
@@ -130,7 +131,7 @@ void recalc_priorities()
     int i;
     struct list all_readys; 
     struct list_elem *curr;
-    list_init(&all_readys); // Hey Kyle, turns out initializing your lists is pretty important ;). -M@
+    list_init(&all_readys); 
     for(i=0; i<=PRI_MAX; i++)
     {
         while (! list_empty(&ready_lists[i]))
@@ -142,7 +143,7 @@ void recalc_priorities()
     {
         curr = list_pop_front(&all_readys);
         struct thread *curr_t = list_entry(curr, struct thread, elem);
-        curr_t->priority = PRI_MAX - (thread_get_recent_cpu_2(curr_t) / 4) - (2*curr_t->niceness);
+        curr_t->priority = PRI_MAX - (thread_get_recent_cpu_2(curr_t) / 400) - (2*curr_t->niceness)/100;
         sorted_add_thread(curr);
     }
     intr_set_level(old_level);
@@ -154,21 +155,17 @@ void thread_tick(void) {
     struct thread *t = thread_current();
     if(thread_mlfqs)
     {
-	static int tick_level = 0;
-        static int tick_level_sec = 0;
+        static int tick_level_sec = -1;
+        tick_level_sec ++;
         if(tick_level_sec == 100)
         {
             load_average_update();
             thread_foreach(thread_update_recent_cpu, NULL);
+	    //recalc_priorities();
+            tick_level_sec = 0;
+            //printf("load_average %d", thread_get_load_average());
         }
-        tick_level_sec ++;
-	if(tick_level == 4)
-	{
-	    tick_level = 0;
-            t->recent_cpu ++; 
-	    recalc_priorities();
-	}
-	tick_level ++;
+        thread_current()->recent_cpu ++;
     }
     /* Update statistics. */
     if (t == idle_thread)
@@ -211,7 +208,7 @@ void thread_tick(void) {
         intr_yield_on_return();
 }
 
-int curr_load_avg = 0;
+int curr_load_avg = 0; // IN FIXED POINT FORMAT
 
 /*! Prints thread statistics. */
 void thread_print_stats(void) {
@@ -503,7 +500,7 @@ int thread_get_nice(void) {
 
 /*! Returns 100 times the system load average. */
 int thread_get_load_avg(void) {
-    return curr_load_avg;
+    return (curr_load_avg / 14);
 }
 void load_average_update(void) {
      // We ned to get the n_ready_threads
@@ -512,21 +509,28 @@ void load_average_update(void) {
     for(i=0; i<=PRI_MAX; i++)
     {
         n_ready_threads += (int) list_size(&ready_lists[i]);
-    } 
-    curr_load_avg = 100*(59*curr_load_avg + n_ready_threads)/60;
+    }
+     
+    if (thread_current() != idle_thread) 
+    {
+    	n_ready_threads ++;
+    }
+    curr_load_avg = 10*(59*curr_load_avg/100+14*n_ready_threads)/6;
 }
 
 /*! Returns 100 times the given thread's recent_cpu value. */
 int thread_get_recent_cpu(void) {
-    return thread_current()->recent_cpu; 
+    // the value in the struct is going to be 100 times
+    // the "real" value and also in fixed point form
+    return (thread_current()->recent_cpu)/14; 
 }
 int thread_get_recent_cpu_2(struct thread *curr_thread) {
-    return curr_thread->recent_cpu;
+    return (curr_thread->recent_cpu)/14;
 }
 static void thread_update_recent_cpu(struct thread *curr_thread, void *aux) {
     int recent = curr_thread->recent_cpu;
     int load_avg = thread_get_load_avg();
-    curr_thread->recent_cpu = 100*(2*load_avg)/(2*load_avg+1)*recent+curr_thread->niceness;
+    curr_thread->recent_cpu = ((2*load_avg/100)*(recent/100)+14*curr_thread->niceness)*100/(2*load_avg/100+14);
 }
 
 /*! Idle thread.  Executes when no other thread is ready to run.
