@@ -135,9 +135,9 @@ The semaphore lock
 Suppose we have a lock l. l has a field named donation, initialized to 0, 
 keeping track of the highest priority among processes waiting on the lock. 
 When a process P tries to acquire l when l is already held, then l.donation
-is set to the max of itself and the priority of P. Call the process holding l Q.
+is set to the max of itself and the priority of P. Let's call the process holding l Q.
 Then if Q's priority is less than l.donation, then Q's priority is set to 
-l.donation. Then the donation of the lock that Q is blocked on is set to Q's
+l.donation, resorting Q in the ready queues. Then the donation of the lock that Q is blocked on is set to Q's
 priority, This is repeated (setting lock holder's priority to the max, and
 setting the held locks donation) until a process is donated to and is not 
 blocked on a lock.
