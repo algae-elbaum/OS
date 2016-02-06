@@ -420,9 +420,6 @@ void thread_set_priority(int new_priority) {
 
     ASSERT(!intr_context());
 
-
-
-
     // set current thread priority to input priority
     thread_current()->base_priority = new_priority;
     thread_refresh_priority();
