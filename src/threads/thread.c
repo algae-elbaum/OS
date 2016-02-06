@@ -144,6 +144,8 @@ void recalc_priorities()
         curr = list_pop_front(&all_readys);
         struct thread *curr_t = list_entry(curr, struct thread, elem);
         curr_t->priority = PRI_MAX - (thread_get_recent_cpu_2(curr_t) / 400) - (2*curr_t->niceness)/100;
+        if(curr_t->priority > PRI_MAX) { curr_t->priority = PRI_MAX;}
+        if(curr_t->priority < PRI_MIN) { curr_t->priority = PRI_MIN;}
         sorted_add_thread(curr);
     }
     intr_set_level(old_level);
@@ -161,11 +163,14 @@ void thread_tick(void) {
         {
             load_average_update();
             thread_foreach(thread_update_recent_cpu, NULL);
-	    //recalc_priorities();
             tick_level_sec = 0;
             //printf("load_average %d", thread_get_load_average());
         }
-        thread_current()->recent_cpu ++;
+        if(tick_level_sec % 4 == 0)
+        {
+	    recalc_priorities();
+        }
+        thread_current()->recent_cpu += (100/14);
     }
     /* Update statistics. */
     if (t == idle_thread)
@@ -519,15 +524,15 @@ void load_average_update(void) {
 int thread_get_recent_cpu(void) {
     // the value in the struct is going to be 100 times
     // the "real" value and also in fixed point form
-    return (thread_current()->recent_cpu)/14; 
+    return 200*(thread_current()->recent_cpu)/14; 
 }
 int thread_get_recent_cpu_2(struct thread *curr_thread) {
-    return (curr_thread->recent_cpu)/14;
+    return 200*(curr_thread->recent_cpu)/14;
 }
-static void thread_update_recent_cpu(struct thread *curr_thread, void *aux) {
+static void thread_update_recent_cpu(struct thread *curr_thread, void *aux UNUSED) {
     int recent = curr_thread->recent_cpu;
     int load_avg = thread_get_load_avg();
-    curr_thread->recent_cpu = ((2*load_avg/100)*(recent/100)+14*curr_thread->niceness)*100/(2*load_avg/100+14);
+    curr_thread->recent_cpu = ((int64_t)((int64_t)(load_avg)*recent)/(load_avg + 50)) + (14*curr_thread->niceness); 
 }
 
 /*! Idle thread.  Executes when no other thread is ready to run.

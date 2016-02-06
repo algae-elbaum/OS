@@ -43,7 +43,7 @@ which parts.
    Make sure that each member's total time is listed.
    Henry Elbaum: 18
    Bianca: 
-   Kyle: 
+   Kyle: I don't want to count that high. 
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -221,6 +221,11 @@ static struct list ready_lists[PRI_MAX + 1];
 
 We are using 64 lists so that we have a queue for each priority. This makes keeping track
 of which thread is next in the priority easier.
+
+
+int curr_load_avg = 0; // IN FIXED POINT FORMAT
+
+We need to store the system wide variable that is the load_average. We are storing it in the printable form ie 100x the normal size and in the fixed point format. We can print it properly using the appropriate function. Functions that use this value know what format it is in and convert appropriately.
 ---- ALGORITHMS ----
 
 >> C2: Suppose threads A, B, and C have nice values 0, 1, and 2.  Each
@@ -255,6 +260,10 @@ enqueued.
 >> C4: How is the way you divided the cost of scheduling between code
 >> inside and outside interrupt context likely to affect performance?
 
+Recalc priorities disables interrupts. We need to do this because if the timer
+ticks while this is going on, we might try to recalculate the priority again. This is problematic because we might update the priorities incorrectly and lose a set of timer ticks.
+
+
 ---- RATIONALE ----
 
 >> C5: Briefly critique your design, pointing out advantages and
@@ -262,12 +271,24 @@ enqueued.
 >> time to work on this part of the project, how might you choose to
 >> refine or improve your design?
 
+If we could time how long recalculating takes to run, and/or determine exactly how fast interrupts can be fired, we might not need to disable interrupts because we could garuntee that no other interrupts would occur there.
+I would also probably make the fixed point a real struct and/or implement floats because they seem useful to later parts of the kernel. It would make things easier to test and write in the future, which is likely worth more than the increase in speed and precision caused by being able to cancel terms.
+
 >> C6: The assignment explains arithmetic for fixed-point math in
 >> detail, but it leaves it open to you to implement it.  Why did you
 >> decide to implement it the way you did?  If you created an
 >> abstraction layer for fixed-point math, that is, an abstract data
 >> type and/or a set of functions or macros to manipulate fixed-point
 >> numbers, why did you do so?  If not, why not?
+
+Originally, I tried to multiply by 100 to hold on to the decimal terms
+but couldn't determine how many orders of magntiude to use, so I went with
+the 17.14 split explained in the assignment. I decided to implement it
+by directly multiplying and dividing in the function calls. We store the 
+fixed point versions. I chose this because I thought it would be faster
+both to implement and to run. This also means we can cancel out terms
+like redundant 14s in the numerator and denominator, which should also
+boost our precision. 
 
               SURVEY QUESTIONS
               ================
@@ -281,11 +302,16 @@ penalized.  We can't fix things until we know about them.  :-)
 >> In your opinion, was this assignment, or any of the parts of it, too
 >> easy or too hard?  Did it take too long or too little time?
 
+Took a long time, but that could also be because we started a bit late.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+
+Why are fixed points useful? Why don't we just multiply by 10^6 or something
+and then divide later?
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
