@@ -48,8 +48,8 @@ which parts.
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
    Henry Elbaun: Alarm clock, priority donation
+   Bianca Ray Avalani: Regular priority scheduling, helped with concurrency, locks, BSD debugging
    Kyle Seipp: BSD Scheduler, some work on interrupts
-   Bianca: Priority scheduling, helped with concurrency, locks
 
                  ALARM CLOCK
                  ===========
@@ -127,6 +127,8 @@ there isn't really much advantage doing it outside of the timer handler
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
+The semaphore lock
+
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
 
@@ -140,7 +142,7 @@ priority, This is repeated (setting lock holder's priority to the max, and
 setting the held locks donation) until a process is donated to and is not 
 blocked on a lock.
 
-After a thread acquires a lock, it puts that lock in its list of held locks
+After a thread acquires a lock, it puts that lock in its list of held locks.
 
 >> B5: Describe the sequence of events when lock_release() is called
 >> on a lock that a higher-priority thread is waiting for.
@@ -157,6 +159,8 @@ TODO SOMEONE TALK ABOUT HOW ITS ENSURED THAT THE HIGHEST PRIORITY WAITING THREAD
 >> B6: Describe a potential race in thread_set_priority() and explain
 >> how your implementation avoids it.  Can you use a lock to avoid
 >> this race?
+
+Locks 
 
 ---- RATIONALE ----
 
