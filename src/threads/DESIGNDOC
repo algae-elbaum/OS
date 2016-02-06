@@ -47,7 +47,7 @@ which parts.
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
-   Henry Elbaun: Alarm clock, priority donation
+   Henry Elbaun: Alarm clock, priority donation, helping debug
    Bianca Ray Avalani: Regular priority scheduling, helped with concurrency, locks, BSD debugging
    Kyle Seipp: BSD Scheduler, some work on interrupts, more debugging esp with BSD scheduler and some issues with lists
 
@@ -121,6 +121,12 @@ there isn't really much advantage doing it outside of the timer handler
 >> B2: Explain the data structure used to track priority donation.
 >> Use ASCII art to diagram a nested donation.  (Alternately, submit a
 >> .png file.)
+
+This is basically explained in B4 and B5. As far as data structures go, the
+only change is that locks now have a donation element keeping track of the
+priority of the highest priority thread waiitng on the lock. And the other
+change is that threads now keep track of a base priority in addition to priority,
+where priority is the donated priority (or the same as base if there's no donation)
 
 ---- ALGORITHMS ----
 
