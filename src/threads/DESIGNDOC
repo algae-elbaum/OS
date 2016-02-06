@@ -41,15 +41,15 @@ which parts.
 
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
-   Henry Elbaum: 18
+   Henry Elbaum: 20
    Bianca: 
-   Kyle: I don't want to count that high. 
+   Kyle: I don't want to count that high. 28 (Wish I was more efficient)
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
    Henry Elbaun: Alarm clock, priority donation
    Bianca Ray Avalani: Regular priority scheduling, helped with concurrency, locks, BSD debugging
-   Kyle Seipp: BSD Scheduler, some work on interrupts
+   Kyle Seipp: BSD Scheduler, some work on interrupts, more debugging esp with BSD scheduler and some issues with lists
 
                  ALARM CLOCK
                  ===========
@@ -127,7 +127,8 @@ there isn't really much advantage doing it outside of the timer handler
 >> B3: How do you ensure that the highest priority thread waiting for
 >> a lock, semaphore, or condition variable wakes up first?
 
-The semaphore lock
+We know which thread is highest because we have an arry of linked lists. They range from primin to primax. The threads are inserted into the linked list of the approppriate priority. Thus we look for the highest numbered linked list that is non empty. If all are empty, then we run the idle thread.
+
 
 >> B4: Describe the sequence of events when a call to lock_acquire()
 >> causes a priority donation.  How is nested donation handled?
@@ -151,8 +152,7 @@ When a thread releases a lock, it removes the lock from its list of held
 locks, and then determines which of the locks it still holds has the maximum
 donation and uses that to redetermine its own priority. 
 
-TODO SOMEONE TALK ABOUT HOW ITS ENSURED THAT THE HIGHEST PRIORITY WAITING THREAD
-     IS THE ONE THAT'S MADE READY
+We know which thread is highest because we have an arry of linked lists. They range from primin to primax. The threads are inserted into the linked list of the approppriate priority. Thus we look for the highest numbered linked list that is non empty. If all are empty, then we run the idle thread.
 
 ---- SYNCHRONIZATION ----
 
