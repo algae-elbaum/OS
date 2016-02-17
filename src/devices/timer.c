@@ -42,6 +42,7 @@ void timer_init(void) {
 /*! Calibrates loops_per_tick, used to implement brief delays. */
 void timer_calibrate(void) {
     unsigned high_bit, test_bit;
+
     ASSERT(intr_get_level() == INTR_ON);
     printf("Calibrating timer...  ");
 
@@ -80,9 +81,11 @@ int64_t timer_elapsed(int64_t then) {
 /*! Sleeps for approximately TICKS timer ticks.  Interrupts must
     be turned on. */
 void timer_sleep(int64_t ticks) {
+    int64_t start = timer_ticks();
+
     ASSERT(intr_get_level() == INTR_ON);
-    
-    thread_sleep(ticks);
+    while (timer_elapsed(start) < ticks) 
+        thread_yield();
 }
 
 /*! Sleeps for approximately MS milliseconds.  Interrupts must be turned on. */

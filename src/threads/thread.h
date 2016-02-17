@@ -95,23 +95,14 @@ struct thread {
     enum thread_status status;          /*!< Thread state. */
     char name[16];                      /*!< Name (for debugging purposes). */
     uint8_t *stack;                     /*!< Saved stack pointer. */
-    int priority;                       /*!< Priority (including donation). */
-    int base_priority;                  /*!< Base priority. */
-    int64_t wake_tick;                  /*!< Ticks left until it's time to wake up. */
+    int priority;                       /*!< Priority. */
     struct list_elem allelem;           /*!< List element for all threads list. */
-    struct list_elem timer_elem;        /*!< List element for timer blocked list */
-    int niceness;			/*!< Niceness value */
-    int recent_cpu;                     /*!< Measure of how recently the function has had the CPU */
     /**@}*/
-
-    struct list locks;                  /*!< List of locks this thread holds */
-    struct lock *blocking_lock;         /*!< Thread which this thread is waiting on for a lock. */
 
     /*! Shared between thread.c and synch.c. */
     /**@{*/
     struct list_elem elem;              /*!< List element. */
     /**@}*/
-
 
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
@@ -140,8 +131,6 @@ void thread_print_stats(void);
 typedef void thread_func(void *aux);
 tid_t thread_create(const char *name, int priority, thread_func *, void *);
 
-void sorted_add_thread(struct list_elem *new_thread);
-void resort_thread(struct thread *t);
 void thread_block(void);
 void thread_unblock(struct thread *);
 
@@ -151,27 +140,19 @@ const char *thread_name(void);
 
 void thread_exit(void) NO_RETURN;
 void thread_yield(void);
-void thread_sleep(int64_t ticks);
 
 /*! Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func(struct thread *t, void *aux);
 
 void thread_foreach(thread_action_func *, void *);
 
-void recalc_priorities(void);
-
 int thread_get_priority(void);
 void thread_set_priority(int);
-void thread_add_lock(struct list_elem *lock_elem);
-void thread_remove_lock(struct list_elem *lock_elem);
-void thread_refresh_priority(void);
 
 int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
-int thread_get_recent_cpu_2(struct thread *);
 int thread_get_load_avg(void);
-void load_average_update(void);
 
 #endif /* threads/thread.h */
 
