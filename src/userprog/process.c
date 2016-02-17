@@ -25,41 +25,126 @@ static bool load(const char *cmdline, void (**eip)(void), void **esp);
     thread may be scheduled (and may even exit) before process_execute()
     returns.  Returns the new process's thread id, or TID_ERROR if the thread
     cannot be created. */
-tid_t process_execute(const char *file_name) {
-    char *fn_copy;
+tid_t process_execute(const char *cmd) {
+    // The second copy is for getting the file name without messing up
+    // the cmd_copy we send in thread_create as aux.
+    char *cmd_copy, *cmd_copy2;
     tid_t tid;
 
-    /* Make a copy of FILE_NAME.
+    /* Make copies of CMD
        Otherwise there's a race between the caller and load(). */
-    fn_copy = palloc_get_page(0);
-    if (fn_copy == NULL)
+    cmd_copy = palloc_get_page(0);
+    cmd_copy2 = palloc_get_page(0);
+    if (cmd_copy == NULL || cmd_copy2 == NULL)
         return TID_ERROR;
-    strlcpy(fn_copy, file_name, PGSIZE);
+    strlcpy(cmd_copy, cmd, PGSIZE);
+    strlcpy(cmd_copy2, cmd, PGSIZE);
+
+    // Extract the file_name
+    char *file_name, *temp;
+    file_name = strtok_r(cmd_copy2, " ", &temp);
 
     /* Create a new thread to execute FILE_NAME. */
-    tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+    tid = thread_create(file_name, PRI_DEFAULT, start_process, cmd_copy);
     if (tid == TID_ERROR)
-        palloc_free_page(fn_copy); 
+    {
+        palloc_free_page(cmd_copy); 
+        palloc_free_page(cmd_copy2); 
+    }
+    // Otherwise the pages live forever? Or as long as the current process lives? k..
     return tid;
 }
 
+// If you use this, be sure esp is far away. In particular, make sure it won't
+// get nuked when returning from this function
+static void push_char(char **esp, char c)
+{
+    (*esp) --;
+    **esp = c;
+}
+
+static void push_char_star(char ***esp, char *cs)
+{
+    (*esp) --;
+    **esp = cs;
+}
+
+static void push_char_star_star(char ****esp, char **cs)
+{
+    (*esp) --;
+    **esp = cs;
+}
+// These should have been all one function with the help of a macro
+
+static void nothing_really(void)
+{
+}
+
 /*! A thread function that loads a user process and starts it running. */
-static void start_process(void *file_name_) {
-    char *file_name = file_name_;
+static void start_process(void *cmd_) {  // Why does this take a void *?
+    char *cmd = cmd_;
+    int cmd_len = strlen(cmd);
     struct intr_frame if_;
     bool success;
+
+    // Start tokenizing the command to get the file_name
+    char *token, *save_ptr;
+    token = strtok_r(cmd, " ", &save_ptr); // token is now file_name
 
     /* Initialize interrupt frame and load executable. */
     memset(&if_, 0, sizeof(if_));
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-    success = load(file_name, &if_.eip, &if_.esp);
+    success = load(token, &if_.eip, &if_.esp);
 
     /* If load failed, quit. */
-    palloc_free_page(file_name);
     if (!success) 
+    {
+        palloc_free_page(cmd);
         thread_exit();
+    }
+    // Time to keep tokenizing and smacking everything into the user prog's stack
+    char * args_ptrs[cmd_len * sizeof(char *)]; // Hacky way of remembering all the pointers we'll
+                                                // want without dynamic memory
+    int arg_count = 0;
+    // if_.esp is currently at PHYS_BASE
+    // First stick all the strings into the stack, and keep track of the address of each
+    int i = 0;
+    for (; token != NULL; i++, token = strtok_r(NULL, " ", &save_ptr))
+    {
+        //printf("%s\n", token);
+        arg_count++;
+        int j;
+        push_char((char **) &if_.esp, '\0');
+        for (j = strlen(token) - 1; j >= 0; j--)
+        {
+            push_char((char **) &if_.esp, token[j]);
+        }
+        args_ptrs[i] = ((char *) if_.esp);
+    }
+   
+    // Done with this forever now
+    palloc_free_page(cmd);
+
+    // I don't know the assembly to align a random pointer, so whatever let's
+    // just be inefficient and not align
+
+    // Now we need to stick in the sentinel NULL char *
+    push_char_star((char ***) &if_.esp, NULL);
+
+    // Stick on pointers to the args, last one first
+    for (i = arg_count - 1; i >= 0; i--)
+    {
+        push_char_star((char ***) &if_.esp, args_ptrs[i]);
+    }
+
+    // Stick on argv
+    push_char_star_star((char ****) &if_.esp, if_.esp);
+
+    // And finally the nonsense return value
+    if_.esp += sizeof(nothing_really); // It'll be filled with nonsense rather than 0 but that's ok
+
 
     /* Start the user process by simulating a return from an
        interrupt, implemented by intr_exit (in
@@ -404,7 +489,7 @@ static bool setup_stack(void **esp) {
     if (kpage != NULL) {
         success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
         if (success)
-            *esp = PHYS_BASE;
+            *esp = PHYS_BASE - 8;
         else
             palloc_free_page(kpage);
     }
