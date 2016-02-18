@@ -10,6 +10,8 @@
 #include <list.h>
 #include <stdint.h>
 
+#define MAX_FILES 256 // Arbitrary limit on number of open files
+
 /*! States in a thread's life cycle. */
 enum thread_status {
     THREAD_RUNNING,     /*!< Running thread. */
@@ -98,6 +100,8 @@ struct thread {
     int priority;                       /*!< Priority. */
     struct list_elem allelem;           /*!< List element for all threads list. */
     /**@}*/
+
+    struct file *open_files[MAX_FILES];
 
     /*! Shared between thread.c and synch.c. */
     /**@{*/
