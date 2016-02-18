@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "lib/kernel/list.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -165,7 +166,47 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
     This function will be implemented in problem 2-2.  For now, it does
     nothing. */
 int process_wait(tid_t child_tid UNUSED) {
-    return -1;
+    struct thread * curr = thread_current();
+    bool is_a_child = 0;
+    struct list_elem * e;
+    struct death_pair *f;
+    for (e = list_begin (&curr->children); e != list_end (&curr->children);
+           e = list_next (e))
+        {
+          f = list_entry (e, struct death_pair, elem);
+          if (f->tid == child_tid)
+          {
+              is_a_child = 1;
+              break;
+          }
+          
+        }
+    if (! is_a_child)
+    {
+        return -1;
+    }
+    // Now we know we have a child of the current process.
+    // We also know that the tid must be valid because all children
+    // must have valid tids to have existed in the first place.
+
+    if (f->completed)
+    {
+        return f->status;
+    }
+    // If we are used, then fail.
+    if (f->used)
+    {
+        return -1;
+    }
+    else
+    {
+        f->used = 1;
+    }
+
+    // If it isn't completed, then we need to wait for it.
+    curr->blocked_on = f->tid;
+    thread_block();
+    return f->status;
 }
 
 /*! Free the current process's resources. */
@@ -187,6 +228,11 @@ void process_exit(void) {
         cur->pagedir = NULL;
         pagedir_activate(NULL);
         pagedir_destroy(pd);
+    }
+    // Hey lets wake up parent if it was blocked on me. yayyyy
+    if (cur->parent->blocked_on == cur->tid)
+    {
+        thread_unblock(cur->parent);
     }
 }
 

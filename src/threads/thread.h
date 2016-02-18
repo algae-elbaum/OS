@@ -106,6 +106,9 @@ struct thread {
     /*! Shared between thread.c and synch.c. */
     /**@{*/
     struct list_elem elem;              /*!< List element. */
+    struct list children;               // List of the children of a thread. err death pairs
+    struct thread * parent; //this thread's parent
+    tid_t blocked_on; // if we are blocked on a child, this is what it is. err its tid
     /**@}*/
 
 #ifdef USERPROG
@@ -121,6 +124,13 @@ struct thread {
     /**@}*/
 };
 
+struct death_pair {
+    tid_t tid;
+    int status;
+    struct list_elem elem;
+    bool completed;
+    bool used;
+};
 /*! If false (default), use round-robin scheduler.
     If true, use multi-level feedback queue scheduler.
     Controlled by kernel command-line option "-o mlfqs". */

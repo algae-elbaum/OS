@@ -11,7 +11,8 @@
 #define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
 #include "devices/input.h"
-
+//#include "threads/vaddr.h"
+//#include "userprog/pagedir.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -21,10 +22,39 @@ static int sys_write(int fd, const void *buffer, unsigned size);
 static void sys_seek(int fd, unsigned pos);
 static unsigned sys_tell(int fd);
 static void sys_close(int fd);
+static int find_available_fd(void);
 
 static struct lock filesys_lock;
 
+static uint32_t * ptr_is_valid(const void *ptr);
 
+// check whether a passed in pointer is valid, return correct address
+// currently doing it the slower way, will attempt to implemenent 2nd way
+// if time remains
+static uint32_t * ptr_is_valid(const void *ptr)
+{   // check whether the ptr address is valid and within user virtual memory   
+    // page directory is most significant 10 digits of vaddr
+    uintptr_t pd = pd_no(ptr);
+    if (!(is_user_vaddr(ptr)) || ptr == NULL) // if it isn't
+    {
+        // how do compare ptr < 0?
+        // make sure to release lock/free page of memory
+        // destroy page?
+        pagedir_destroy((uint32_t *) pd);
+        return NULL;
+    }
+    else // if the location is valid
+    {
+        // return the correct address
+        // dereference ptr, return
+        // lookup page uses page directory (most significant 10 digits of
+        // vaddr), vaddr, and CREATE = true(if not found, 
+        // create new page table, return its ptr) or false(if not found,
+        // return null)
+        return lookup_page((uint32_t*) pd, ptr, false);
+    }
+}
+    
 void syscall_init(void) {
     lock_init(&filesys_lock);
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
@@ -48,9 +78,30 @@ static void syscall_exec(char * name)
 {
     process_execute(name);
 }
-static void syscall_create(char * file, int size)
+static bool syscall_create(const char * file, unsigned size)
 {
-    //TODO algae
+    //maybe we need something else here?
+    return filesys_create(file, size);
+}
+
+static bool syscall_remove(const char *file)
+{
+    // gotta do some other check maybe???
+    return filesys_remove(file);
+}
+static int syscall_open(const char *file)
+{
+    int fd = find_available_fd();
+    thread_current()->open_files[fd] = filesys_open(file);
+    if (thread_current()->open_files[fd] == NULL)
+    {
+        return -1;
+    }
+    return fd;
+}
+static int syscall_wait(int pid)
+{
+    return process_wait(pid);
 }
 
 ////// File syscalls \\\\\\\/
@@ -74,21 +125,23 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             syscall_exec((char *) arg0);
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
-            // prpocess wait
+            // process wait
+            syscall_wait((int) arg0);
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
+            // need to get the string via a function from ardan 
             syscall_create((char *) arg0, (int) arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
             lock_acquire(&filesys_lock);
-            
+            syscall_remove((char *) arg0);
             
             lock_release(&filesys_lock);
             break;
         case  SYS_OPEN:                   /*!< Open a file. */
             lock_acquire(&filesys_lock);
-            
+            syscall_open((char *) arg0);
             
             lock_release(&filesys_lock);
             break;
