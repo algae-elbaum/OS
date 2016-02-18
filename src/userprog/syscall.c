@@ -21,6 +21,7 @@ static int sys_write(int fd, const void *buffer, unsigned size);
 static void sys_seek(int fd, unsigned pos);
 static unsigned sys_tell(int fd);
 static void sys_close(int fd);
+static int find_available_fd(void);
 
 static struct lock filesys_lock;
 
@@ -48,9 +49,30 @@ static void syscall_exec(char * name)
 {
     process_execute(name);
 }
-static void syscall_create(char * file, int size)
+static bool syscall_create(const char * file, unsigned size)
 {
-    //TODO algae
+    //maybe we need something else here?
+    return filesys_create(file, size);
+}
+
+static bool syscall_remove(const char *file)
+{
+    // gotta do some other check maybe???
+    return filesys_remove(file);
+}
+static int syscall_open(const char *file)
+{
+    int fd = find_available_fd();
+    thread_current()->open_files[fd] = filesys_open(file);
+    if (thread_current()->open_files[fd] == NULL)
+    {
+        return -1;
+    }
+    return fd;
+}
+static int syscall_wait(int pid)
+{
+    return process_wait(pid);
 }
 
 ////// File syscalls \\\\\\\/
@@ -74,21 +96,23 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             syscall_exec((char *) arg0);
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
-            // prpocess wait
+            // process wait
+            syscall_wait((int) arg0);
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
+            // need to get the string via a function from ardan 
             syscall_create((char *) arg0, (int) arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
             lock_acquire(&filesys_lock);
-            
+            syscall_remove((char *) arg0);
             
             lock_release(&filesys_lock);
             break;
         case  SYS_OPEN:                   /*!< Open a file. */
             lock_acquire(&filesys_lock);
-            
+            syscall_open((char *) arg0);
             
             lock_release(&filesys_lock);
             break;
