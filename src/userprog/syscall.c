@@ -55,13 +55,6 @@ static void syscall_create(char * file, int size)
 
 ////// File syscalls \\\\\\\/
 
-// I'd like to identify file descriptors with processes somehow, but it doesn't seem like the 
-// intr_frame holds anything uniquely identifying. Eventually should use thread_current for some
-// sort of map, but for now I just want to get this working
-// So instead a user process could perfectly well use a file descriptor that wasn't given to it
-static struct file *open_files[MAX_FILES];
-static int used_fds[MAX_FILES] = {0};
-
 static void syscall_handler(struct intr_frame *f UNUSED) {
     long intr_num = *((long *) f->esp) ;
     long arg0 = *(((long *) f->esp) + 1); 
@@ -155,9 +148,6 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             thread_exit();
     }
 }
-
-
-////// File syscalls \\\\\\\/
 
 
 // This'll be useful for opening a new file
