@@ -9,6 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Henry Elbaum  helbaum@caltech.edu
+Bianca Ray Avalani brayaval@caltech.edu
 
 >> Specify how many late tokens you are using on this assignment:  
 1
@@ -42,7 +43,7 @@ which parts.
    Make sure that each member's total time is listed.
 
 Henry: 22 (roughly, didn't keep super good track of it)
-
+Bianca: 13-15ish?
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -50,6 +51,9 @@ Henry: 22 (roughly, didn't keep super good track of it)
 Henry: Arguments for commands, syscall switch table, most file syscalls,
        changes to the thread struct to help file syscalls, helped design
        of process_wait, helped debugging
+
+Bianca: Checking if pointers are valid, implementing that for syscalls,
+        denying writes to executables, helped debugging
 
                            ARGUMENT PASSING
                            ================
@@ -82,10 +86,24 @@ handler should just kill the process.
 ---- RATIONALE ----
 
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
+Strtok_r has an argument that tells it where in the string to look for tokens.
+This makes it more thread-safe and more likely to avoid race conditions than
+strtok because that stores the location in the string in a static pointer 
+instead of having it passed in.
 
 >> A4: In Pintos, the kernel separates commands into a executable name
 >> and arguments.  In Unix-like systems, the shell does this
 >> separation.  Identify at least two advantages of the Unix approach.
+
+1) Having the shell do this externally instead of the kernel makes it less
+expensive to do things like, for example, looking for the file
+especially since the shell maintains a path variable. This is less
+expensive than the kernel doing the same thing while a process gets
+initialized.
+2) Having the shell parse the command line instead of the kernel is safer
+because if the command line is incorrect, it will be caught before it hits
+the kernel and thus makes the kernel's job simpler and avoids potentially
+unsafe commands/operations.
 
                              SYSTEM CALLS
                              ============
