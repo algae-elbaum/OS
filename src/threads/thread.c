@@ -273,7 +273,7 @@ void thread_exit(void) {
         // this thread dies too soon.
         // we don't want to be dying if we still have a parent
         intr_disable();
-        list_remove(&thread_current()->allelem);
+        list_remove(&curr->allelem);
         curr->status = THREAD_DYING;
         schedule();
         NOT_REACHED();
@@ -287,7 +287,10 @@ void thread_exit(void) {
          {
            struct list_elem *e = list_pop_front (&curr->children);
            //set thread to dead
-           list_entry(e, struct thread, child_of)->status = THREAD_DYING;
+           if (list_entry(e, struct thread, child_of)->status == THREAD_WAITING)
+           {
+               list_entry(e, struct thread, child_of)->status = THREAD_DYING;
+           }
          }
 
          curr->used = 0;
@@ -298,7 +301,7 @@ void thread_exit(void) {
         {
             thread_unblock(curr->parent);
         }
-    #endif
+#endif
 
         /* Remove thread from all threads list, set our status to waiting,
            and schedule another process.  That process will not destroy us
@@ -308,7 +311,7 @@ void thread_exit(void) {
         // Well now we know that we have a parent. 
         // So the parent might want us later. So we need to update our status
         curr->status = THREAD_WAITING;
-        list_remove(&thread_current()->allelem);
+        list_remove(&curr->allelem);
         schedule();
         NOT_REACHED();
     }

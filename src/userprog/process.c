@@ -207,6 +207,7 @@ int process_wait(tid_t child_tid) {
 
     // If it isn't completed, then we need to wait for it.
     curr->blocked_on = f->tid;
+    intr_disable();
     thread_block();
     return f->status;
 }
