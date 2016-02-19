@@ -11,7 +11,8 @@
 #define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
 #include "devices/input.h"
-
+//#include "threads/vaddr.h"
+//#include "userprog/pagedir.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -25,7 +26,35 @@ static int find_available_fd(void);
 
 static struct lock filesys_lock;
 
+static uint32_t * ptr_is_valid(const void *ptr);
 
+// check whether a passed in pointer is valid, return correct address
+// currently doing it the slower way, will attempt to implemenent 2nd way
+// if time remains
+static uint32_t * ptr_is_valid(const void *ptr)
+{   // check whether the ptr address is valid and within user virtual memory   
+    // page directory is most significant 10 digits of vaddr
+    uintptr_t pd = pd_no(ptr);
+    if (!(is_user_vaddr(ptr)) || ptr == NULL) // if it isn't
+    {
+        // how do compare ptr < 0?
+        // make sure to release lock/free page of memory
+        // destroy page?
+        pagedir_destroy((uint32_t *) pd);
+        return NULL;
+    }
+    else // if the location is valid
+    {
+        // return the correct address
+        // dereference ptr, return
+        // lookup page uses page directory (most significant 10 digits of
+        // vaddr), vaddr, and CREATE = true(if not found, 
+        // create new page table, return its ptr) or false(if not found,
+        // return null)
+        return lookup_page((uint32_t*) pd, ptr, false);
+    }
+}
+    
 void syscall_init(void) {
     lock_init(&filesys_lock);
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
