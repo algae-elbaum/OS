@@ -170,6 +170,9 @@ tid_t thread_create(const char *name, int priority, thread_func *function,
     tid = t->tid = allocate_tid();
     t->parent = thread_current();
 
+    // Gotta make sure im added to the list of children for my parent
+    list_push_back(&t->parent->children, &t->child_of);
+
     /* Stack frame for kernel_thread(). */
     kf = alloc_frame(t, sizeof *kf);
     kf->eip = NULL;
@@ -257,16 +260,58 @@ void thread_exit(void) {
 
 #ifdef USERPROG
     process_exit();
-#endif
+    struct thread * curr = thread_current();
+    // After cleaning things up we need to deal with implementing
+    // stuff for WAIT and EXIT
+    // First check if the parent is still alive
+    if (curr->parent == NULL)
+    {
+        // whelp we don't have a parent so we are done
+        // just gotta clean up clean up my death struct
+        // oh wait, its already been cleaned up bc the parent died
+        // I think we need to change the status, but maybe not because 
+        // this thread dies too soon.
+        // we don't want to be dying if we still have a parent
+        intr_disable();
+        list_remove(&thread_current()->allelem);
+        curr->status = THREAD_DYING;
+        schedule();
+        NOT_REACHED();
+    }
+    else
+    {
+        // We also know that we don't need our children anymore.
+        // So we can free them. Err remove from list and since reference
+        // count is zero, we can get rid of it. by setting them to dying
+        while (!list_empty (&curr->children))
+         {
+           struct list_elem *e = list_pop_front (&curr->children);
+           //set thread to dead
+           list_entry(e, struct thread, child_of)->status = THREAD_DYING;
+         }
 
-    /* Remove thread from all threads list, set our status to dying,
-       and schedule another process.  That process will destroy us
-       when it calls thread_schedule_tail(). */
-    intr_disable();
-    list_remove(&thread_current()->allelem);
-    thread_current()->status = THREAD_DYING;
-    schedule();
-    NOT_REACHED();
+         curr->used = 0;
+         curr->completed = 1;
+        
+        // Hey lets wake up parent if it was blocked on me. yayyyy
+        if (curr->parent->blocked_on == curr->tid)
+        {
+            thread_unblock(curr->parent);
+        }
+    #endif
+
+        /* Remove thread from all threads list, set our status to waiting,
+           and schedule another process.  That process will not destroy us
+           when it calls thread_schedule_tail().  because 
+           we still need this thing for wait*/
+        intr_disable();
+        // Well now we know that we have a parent. 
+        // So the parent might want us later. So we need to update our status
+        curr->status = THREAD_WAITING;
+        list_remove(&thread_current()->allelem);
+        schedule();
+        NOT_REACHED();
+    }
 }
 
 /*! Yields the CPU.  The current thread is not put to sleep and

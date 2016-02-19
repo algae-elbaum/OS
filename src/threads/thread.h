@@ -17,7 +17,8 @@ enum thread_status {
     THREAD_RUNNING,     /*!< Running thread. */
     THREAD_READY,       /*!< Not running but ready to run. */
     THREAD_BLOCKED,     /*!< Waiting for an event to trigger. */
-    THREAD_DYING        /*!< About to be destroyed. */
+    THREAD_DYING,        /*!< About to be destroyed. */
+    THREAD_WAITING      // This means that the thread is over, but its parent waits on it
 };
 
 /*! Thread identifier type.
@@ -106,9 +107,14 @@ struct thread {
     /*! Shared between thread.c and synch.c. */
     /**@{*/
     struct list_elem elem;              /*!< List element. */
-    struct list children;               // List of the children of a thread. err death pairs
+    struct list children;               // List of the children of a thread. actually threads
+    struct list_elem child_of;
     struct thread * parent; //this thread's parent
+    // TODO remember to set up things with thread->status
+    bool completed;                     // If this thread has terminated. might be subsumed by status
+    bool used;                          // If we have already been reaped
     tid_t blocked_on; // if we are blocked on a child, this is what it is. err its tid
+    int exit_val; // This is the value that we are on exit.
     /**@}*/
 
 #ifdef USERPROG
@@ -124,13 +130,6 @@ struct thread {
     /**@}*/
 };
 
-struct death_pair {
-    tid_t tid;
-    int status;
-    struct list_elem elem;
-    bool completed;
-    bool used;
-};
 /*! If false (default), use round-robin scheduler.
     If true, use multi-level feedback queue scheduler.
     Controlled by kernel command-line option "-o mlfqs". */

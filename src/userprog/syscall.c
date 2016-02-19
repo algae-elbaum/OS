@@ -42,7 +42,9 @@ static void syscall_halt(void)
 
 static void syscall_exit(int status)
 {
-    // find a way to return the status?????
+    // find a way to return the status
+    thread_current()->exit_val = status;
+    // We set up the DYING vs WAITING in thread_exit
     thread_exit();
 }
 static void syscall_exec(char * name)

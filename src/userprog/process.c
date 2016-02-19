@@ -47,6 +47,7 @@ tid_t process_execute(const char *cmd) {
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, cmd_copy);
+
     if (tid == TID_ERROR)
     {
         palloc_free_page(cmd_copy); 
@@ -165,19 +166,20 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
 
     This function will be implemented in problem 2-2.  For now, it does
     nothing. */
-int process_wait(tid_t child_tid UNUSED) {
+int process_wait(tid_t child_tid) {
     struct thread * curr = thread_current();
     bool is_a_child = 0;
     struct list_elem * e;
-    struct death_pair *f;
+    struct thread *f;
     for (e = list_begin (&curr->children); e != list_end (&curr->children);
            e = list_next (e))
         {
-          f = list_entry (e, struct death_pair, elem);
+          
+          f = list_entry(e, struct thread, child_of);
           if (f->tid == child_tid)
           {
-              is_a_child = 1;
-              break;
+            is_a_child = 1;
+            break;
           }
           
         }
@@ -229,11 +231,7 @@ void process_exit(void) {
         pagedir_activate(NULL);
         pagedir_destroy(pd);
     }
-    // Hey lets wake up parent if it was blocked on me. yayyyy
-    if (cur->parent->blocked_on == cur->tid)
-    {
-        thread_unblock(cur->parent);
-    }
+
 }
 
 /*! Sets up the CPU for running user code in the current thread.
