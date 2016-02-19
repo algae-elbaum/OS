@@ -11,8 +11,9 @@
 #define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
 #include "devices/input.h"
-//#include "threads/vaddr.h"
-//#include "userprog/pagedir.h"
+//#include "threads/pte.h"
+#include "userprog/pagedir.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler(struct intr_frame *);
 
@@ -34,19 +35,17 @@ static uint32_t * ptr_is_valid(const void *ptr);
 static uint32_t * ptr_is_valid(const void *ptr)
 {   // check whether the ptr address is valid and within user virtual memory   
     // page directory is most significant 10 digits of vaddr
-    uintptr_t pd = pd_no(ptr);
+    // mimicking pd_no. PDSHIFT = (PTSHIFT + PTBITS) = PGBITS + 10 = 22
+    uintptr_t pd = (uintptr_t) ptr >> 22;
     if (!(is_user_vaddr(ptr)) || ptr == NULL) // if it isn't
     {
         // how do compare ptr < 0?
-        // make sure to release lock/free page of memory
-        // destroy page?
+        // destroy page
         pagedir_destroy((uint32_t *) pd);
         return NULL;
     }
     else // if the location is valid
     {
-        // return the correct address
-        // dereference ptr, return
         // lookup page uses page directory (most significant 10 digits of
         // vaddr), vaddr, and CREATE = true(if not found, 
         // create new page table, return its ptr) or false(if not found,
@@ -78,28 +77,60 @@ static void syscall_exit(int status)
 }
 static void syscall_exec(char * name)
 {
-    process_execute(name);
+    if (ptr_is_valid((void*) name) != NULL)
+    {
+        process_execute((char*)ptr_is_valid((void*) name));
+    }
+    else
+    {
+        syscall_exit(1);
+    }
 }
 static bool syscall_create(const char * file, unsigned size)
 {
     //maybe we need something else here?
-    return filesys_create(file, size);
+    if (ptr_is_valid((void*) file) != NULL)
+    {
+        return filesys_create((char*)ptr_is_valid((void*) file), size);
+    }
+    else
+    {
+        syscall_exit(1);
+    }
+    return 0;
 }
 
 static bool syscall_remove(const char *file)
 {
     // gotta do some other check maybe???
-    return filesys_remove(file);
+    if (ptr_is_valid((void*) file) != NULL)
+    {
+        return filesys_remove((char*)ptr_is_valid((void*) file));
+    }
+    else
+    {
+        syscall_exit(1);
+    }
+    return 0;
 }
 static int syscall_open(const char *file)
 {
-    int fd = find_available_fd();
-    thread_current()->open_files[fd] = filesys_open(file);
-    if (thread_current()->open_files[fd] == NULL)
+    
+    if (ptr_is_valid((void*) file) != NULL)
     {
-        return -1;
+        int fd = find_available_fd();
+        thread_current()->open_files[fd] = filesys_open((char*)ptr_is_valid((void*) file));
+        if (thread_current()->open_files[fd] == NULL)
+        {
+            return -1;
+        }
+        return fd;
     }
-    return fd;
+    else
+    {
+        syscall_exit(1);
+    }
+    return 0;
 }
 static int syscall_wait(int pid)
 {
