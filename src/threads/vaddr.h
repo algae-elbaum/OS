@@ -52,6 +52,7 @@ static inline void *pg_round_down(const void *va) {
 #define	PHYS_BASE ((void *) LOADER_PHYS_BASE)
 
 /*! Returns true if VADDR is a user virtual address. */
+    // originally static inline
 static inline bool is_user_vaddr(const void *vaddr) {
     return vaddr < PHYS_BASE;
 }
