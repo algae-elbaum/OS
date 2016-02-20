@@ -31,6 +31,11 @@ static struct lock filesys_lock;
 
 static void * ptr_is_valid(const void *ptr);
 
+static bool is_white_space(char input)
+{
+   return (input == '\0' || input == '\r' || input == '\n');
+}
+
 // check whether a passed in pointer is valid, return correct address
 // currently doing it the slower way, will attempt to implemenent 2nd way
 // if time remains
@@ -101,7 +106,7 @@ static bool syscall_remove(const char *file)
 {
     // gotta do some other check maybe???
     char * f = (char *) ptr_is_valid((void*) file);
-    if (*f != '\0')
+    if (! is_white_space(*f))
     {
         return filesys_remove(f);
     }
@@ -114,10 +119,10 @@ static bool syscall_remove(const char *file)
 static int syscall_open(const char *file)
 {
     char * f = (char *) ptr_is_valid((void*) file);
-    if (*f != '\0')
+    if (! is_white_space(*f))
     {
         int fd = find_available_fd();
-        thread_current()->open_files[fd] = filesys_open(f;
+        thread_current()->open_files[fd] = filesys_open(f);
         if (thread_current()->open_files[fd] == NULL)
         {
             return -1;
@@ -174,7 +179,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
         case  SYS_EXEC:                   /*!< Start another process. */
             if(ptr_is_valid(arg0))
             {
-		syscall_exec((char *) *arg0);
+		syscall_exec(*(char **) arg0);
             }
             else
             {
@@ -195,7 +200,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(arg0) && ptr_is_valid(arg1))
             {
-                syscall_create((char *) *arg0, (int) *arg1);
+                syscall_create(*(char **) arg0, (int) *arg1);
             }
             else
             {
@@ -207,7 +212,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(arg0))
             {
-		syscall_remove((char *) *arg0);
+		syscall_remove(*(char **) arg0);
             }
             else
             {
@@ -219,7 +224,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(arg0))
             {
-                syscall_open((char *) *arg0);
+                syscall_open(*(char **) arg0);
             }
             else
             {
@@ -244,7 +249,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(arg0) && ptr_is_valid(arg1) && ptr_is_valid(arg2))
             {
-                f->eax = sys_read(*arg0, (void *)*arg1, *arg2);
+                f->eax = sys_read(*arg0, *(void **)arg1, *arg2);
             }
             else
             {
@@ -256,7 +261,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(arg0) && ptr_is_valid(arg1) && ptr_is_valid(arg2))
             {
-                f->eax = sys_write(*arg0, (void *)*arg1, *arg2);
+                f->eax = sys_write(*arg0,* (void **)arg1, *arg2);
             }
             else
             {
