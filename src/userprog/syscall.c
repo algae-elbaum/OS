@@ -25,14 +25,16 @@ static unsigned sys_tell(int fd);
 static void sys_close(int fd);
 static int find_available_fd(void);
 
+static void syscall_exit(int status);
+
 static struct lock filesys_lock;
 
-static uint32_t * ptr_is_valid(const void *ptr);
+static void * ptr_is_valid(const void *ptr);
 
 // check whether a passed in pointer is valid, return correct address
 // currently doing it the slower way, will attempt to implemenent 2nd way
 // if time remains
-static uint32_t * ptr_is_valid(const void *ptr)
+static void * ptr_is_valid(const void *ptr)
 {   // check whether the ptr address is valid and within user virtual memory   
     // page directory is most significant 10 digits of vaddr
     // mimicking pd_no. PDSHIFT = (PTSHIFT + PTBITS) = PGBITS + 10 = 22
@@ -41,8 +43,8 @@ static uint32_t * ptr_is_valid(const void *ptr)
     {
         // how do compare ptr < 0?
         // destroy page
-        pagedir_destroy((uint32_t *) pd);
-        return NULL;
+        //pagedir_destroy((uint32_t *) pd);
+        syscall_exit(-1);
     }
     else // if the location is valid
     {
@@ -50,7 +52,7 @@ static uint32_t * ptr_is_valid(const void *ptr)
         // vaddr), vaddr, and CREATE = true(if not found, 
         // create new page table, return its ptr) or false(if not found,
         // return null)
-        return lookup_page((uint32_t*) pd, ptr, false);
+        return pagedir_get_page(thread_current()->pagedir, ptr);
     }
 }
     
@@ -83,7 +85,7 @@ static void syscall_exec(char * name)
     }
     else
     {
-        syscall_exit(1);
+        syscall_exit(-1);
     }
 }
 static bool syscall_create(const char * file, unsigned size)
@@ -95,7 +97,7 @@ static bool syscall_create(const char * file, unsigned size)
     }
     else
     {
-        syscall_exit(1);
+        syscall_exit(-1);
     }
     return 0;
 }
@@ -109,7 +111,7 @@ static bool syscall_remove(const char *file)
     }
     else
     {
-        syscall_exit(1);
+        syscall_exit(-1);
     }
     return 0;
 }
@@ -128,7 +130,7 @@ static int syscall_open(const char *file)
     }
     else
     {
-        syscall_exit(1);
+        syscall_exit(-1);
     }
     return 0;
 }
