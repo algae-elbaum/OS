@@ -100,9 +100,10 @@ static bool syscall_create(const char * file, unsigned size)
 static bool syscall_remove(const char *file)
 {
     // gotta do some other check maybe???
-    if (ptr_is_valid((void*) file) != NULL)
+    char * f = (char *) ptr_is_valid((void*) file);
+    if (*f != '\0')
     {
-        return filesys_remove((char*)ptr_is_valid((void*) file));
+        return filesys_remove(f);
     }
     else
     {
@@ -112,11 +113,11 @@ static bool syscall_remove(const char *file)
 }
 static int syscall_open(const char *file)
 {
-    
-    if (ptr_is_valid((void*) file) != NULL)
+    char * f = (char *) ptr_is_valid((void*) file);
+    if (*f != '\0')
     {
         int fd = find_available_fd();
-        thread_current()->open_files[fd] = filesys_open((char*)ptr_is_valid((void*) file));
+        thread_current()->open_files[fd] = filesys_open(f;
         if (thread_current()->open_files[fd] == NULL)
         {
             return -1;
@@ -331,7 +332,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
 static int find_available_fd(void)
 {
     int i;
-    for (i = 0; i < MAX_FILES; i++)
+    for (i = 2; i < MAX_FILES; i++)
     {
         if (thread_current()->open_files[i] != NULL)
             return i;
