@@ -117,11 +117,13 @@ static int syscall_open(const char *file)
     if (*f != '\0')
     {
         int fd = find_available_fd();
-        thread_current()->open_files[fd] = filesys_open(f;
+        thread_current()->open_files[fd] = filesys_open(f);
         if (thread_current()->open_files[fd] == NULL)
         {
             return -1;
         }
+        // deny writes to executables
+        
         return fd;
     }
     else
