@@ -45,7 +45,7 @@ which parts.
 
 Henry: 27 (roughly, didn't keep super good track of it)
 Bianca: 17-19ish?
-Kyle: 12 ish so far
+Kyle: 15 ish
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -57,7 +57,7 @@ Henry: Arguments for commands, syscall switch table, most file syscalls,
 Bianca: Checking if pointers are valid, implementing that for syscalls,
         denying writes to executables, helped debugging
 
-Kyle: Syscalls that weren't relating to files. Syscall_wait, debugging
+Kyle: Syscalls that weren't relating to files. Syscall_wait, debugging, more syscall silliness with whitepsace
                            ARGUMENT PASSING
                            ================
 
@@ -207,6 +207,8 @@ When a process terminates it checks whether its parent is still alive. If it is,
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+Threads that are done have their pages reclaimed. The actual page struct is killed by the scheduler when the thread is set to DYING. This occurs when a child dies with no parent left, and/or when a parent dies the children are reaped. 
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
@@ -214,12 +216,16 @@ When a process terminates it checks whether its parent is still alive. If it is,
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
+uhh we don't.
+
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
 >> calls wait(C) before C exits?  After C exits?  How do you ensure
 >> that all resources are freed in each case?  How about when P
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
+
+We block on the parent when it waits. If C exits first it stays as a WAITING stsatus to get reaped. Otherwise it goes to get freeed by process_exit and by the scheduler bc it is DYING. When a parent dies the dead children get reaped and set to DYING as normal. There shouldn't be any special cases.
 
 ---- RATIONALE ----
 
@@ -231,6 +237,8 @@ When a process terminates it checks whether its parent is still alive. If it is,
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+We didn't.
 
               SURVEY QUESTIONS
               ================
