@@ -171,6 +171,10 @@ things for different processes.
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
+Since file descriptors are local to processes, there's nothing to take care
+of to ensure processes can't mess with files open in different processes.
+A disadvantage is that it wastes a fair amount of memory in the process 
+struct by using a big array
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
