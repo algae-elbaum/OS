@@ -127,6 +127,8 @@ static int syscall_open(const char *file)
         {
             return -1;
         }
+        // deny writes to executables
+        
         return fd;
     }
     else
