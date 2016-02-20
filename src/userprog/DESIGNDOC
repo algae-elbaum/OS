@@ -232,6 +232,10 @@ We block on the parent when it waits. If C exits first it stays as a WAITING sts
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
 
+We implemented a function that checks whether a pointer is valid and accessible,
+i.e. making sure we can't access something that's out of bounds or in kernel
+memory in any of the relevant system calls.
+
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
 
