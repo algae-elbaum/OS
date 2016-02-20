@@ -137,13 +137,25 @@ static int syscall_wait(int pid)
     return process_wait(pid);
 }
 
-////// File syscalls \\\\\\\/
-
 static void syscall_handler(struct intr_frame *f UNUSED) {
-    long intr_num = *((long *) f->esp) ;
-    long arg0 = *(((long *) f->esp) + 1); 
-    long arg1 = *(((long *) f->esp) + 2); 
-    long arg2 = *(((long *) f->esp) + 3); 
+
+    long intr_num;
+    long arg0;
+    long arg1;
+    long arg2;
+
+    if (ptr_is_valid((void*) f->esp) != NULL)
+    {
+        intr_num = *((long *) f->esp) ;
+        arg0 = *(((long *) f->esp) + 1); 
+        arg1 = *(((long *) f->esp) + 2); 
+        arg2 = *(((long *) f->esp) + 3); 
+    }
+    else
+    {
+        syscall_exit(-1);
+    }
+    
     switch (intr_num)
     {
         /* Projects 2 and later. */
@@ -230,8 +242,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
         // case  SYS_INUMBER:                 /*!< Returns the inode number for a fd. */
         //     break;
         default:
-            printf("system call!\n");
-            thread_exit();
+            syscall_exit(-1);
     }
 }
 
