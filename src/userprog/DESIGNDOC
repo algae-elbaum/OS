@@ -10,6 +10,7 @@
 
 Henry Elbaum  helbaum@caltech.edu
 Bianca Ray Avalani brayaval@caltech.edu
+Kyle Seipp kseipp@caltech.edu
 
 >> Specify how many late tokens you are using on this assignment:  
 1
@@ -42,8 +43,9 @@ which parts.
 >> L1: How many hours did each team member spend on this assignment?
    Make sure that each member's total time is listed.
 
-Henry: 22 (roughly, didn't keep super good track of it)
-Bianca: 13-15ish?
+Henry: 27 (roughly, didn't keep super good track of it)
+Bianca: 17-19ish?
+Kyle: 15 ish
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -55,6 +57,7 @@ Henry: Arguments for commands, syscall switch table, most file syscalls,
 Bianca: Checking if pointers are valid, implementing that for syscalls,
         denying writes to executables, helped debugging
 
+Kyle: Syscalls that weren't relating to files. Syscall_wait, debugging, more syscall silliness with whitepsace
                            ARGUMENT PASSING
                            ================
 
@@ -113,7 +116,59 @@ unsafe commands/operations.
 >> B1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
+struct thread {
+    /*! Owned by thread.c. */
+    /**@{*/
+    tid_t tid;                          /*!< Thread identifier. */
+    enum thread_status status;          /*!< Thread state. */
+    char name[16];                      /*!< Name (for debugging purposes). */
+    uint8_t *stack;                     /*!< Saved stack pointer. */
+    int priority;                       /*!< Priority. */
+    struct list_elem allelem;           /*!< List element for all threads list. */
+    /**@}*/
 
+    struct file *open_files[MAX_FILES];
+
+    /*! Shared between thread.c and synch.c. */
+    /**@{*/
+    struct list_elem elem;              /*!< List element. */
+    struct list children;               // List of the children of a thread. actually threads
+    struct list_elem child_of;
+    struct thread * parent; //this thread's parent
+    bool completed;                     // If this thread has terminated. might be subsumed by status
+    bool used;                          // If we have already been reaped
+    tid_t blocked_on; // if we are blocked on a child, this is what it is. err its tid
+    int exit_val; // This is the value that we are on exit.
+    /**@}*/
+
+#ifdef USERPROG
+    /*! Owned by userprog/process.c. */
+    /**@{*/
+    uint32_t *pagedir;                  /*!< Page directory. */
+    /**@{*/
+#endif
+
+    /*! Owned by thread.c. */
+    /**@{*/
+    unsigned magic;                     /* Detects stack overflow. */
+    /**@}*/
+};
+
+Threads now can look at their children so syscall_wait works
+
+enum thread_status {
+    THREAD_RUNNING,     /*!< Running thread. */
+    THREAD_READY,       /*!< Not running but ready to run. */
+    THREAD_BLOCKED,     /*!< Waiting for an event to trigger. */
+    THREAD_DYING,        /*!< About to be destroyed. */
+    THREAD_WAITING      // This means that the thread is over, but its parent waits on it
+};
+
+We add another status so that a dead thread can still have its status reaped by the parent.
+
+static struct lock filesys_lock;
+
+This lets us lock the file system so that we don't have synchronization issues.
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
@@ -136,6 +191,8 @@ things for different processes.
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
+When a process terminates it checks whether its parent is still alive. If it is, then the status is set to waiting. Since it isn't ready, it won't be scheduled again. However, the scheudler won't free the system resources for the thread, but will clean up the page table and open files etc. When a parent tries to wait on a process, it checks if the process is WAITING. If it is, then we can get the exit status. If it isn't then we block the parent. If the parent of a child isn't alive, then we can just do the normal thing and set the status to DYING. The scheduler will deal with cleaning up all of the resources.
+
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
 >> process to be terminated.  System calls are fraught with such
@@ -150,6 +207,8 @@ things for different processes.
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+Threads that are done have their pages reclaimed. The actual page struct is killed by the scheduler when the thread is set to DYING. This occurs when a child dies with no parent left, and/or when a parent dies the children are reaped. 
+
 ---- SYNCHRONIZATION ----
 
 >> B7: The "exec" system call returns -1 if loading the new executable
@@ -157,12 +216,16 @@ things for different processes.
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
 
+uhh we don't.
+
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
 >> calls wait(C) before C exits?  After C exits?  How do you ensure
 >> that all resources are freed in each case?  How about when P
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
+
+We block on the parent when it waits. If C exits first it stays as a WAITING stsatus to get reaped. Otherwise it goes to get freeed by process_exit and by the scheduler bc it is DYING. When a parent dies the dead children get reaped and set to DYING as normal. There shouldn't be any special cases.
 
 ---- RATIONALE ----
 
@@ -178,6 +241,8 @@ struct by using a big array
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+
+We didn't.
 
               SURVEY QUESTIONS
               ================
@@ -206,4 +271,6 @@ penalized.  We can't fix things until we know about them.  :-)
 >> projects?
 
 >> Any other comments?
+
+Is there a way to make gdb suck less for this sort of project? There were times when I would have a thread paused and then another thread would do something causing a kernel panic. This meant that I couldn't investigate the proper thread.
 

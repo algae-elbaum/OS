@@ -31,6 +31,11 @@ static struct lock filesys_lock;
 
 static void * ptr_is_valid(const void *ptr);
 
+static bool is_white_space(char input)
+{
+   return (input == '\0' || input == '\r' || input == '\n');
+}
+
 // check whether a passed in pointer is valid, return correct address
 // currently doing it the slower way, will attempt to implemenent 2nd way
 // if time remains
@@ -38,7 +43,6 @@ static void * ptr_is_valid(const void *ptr)
 {   // check whether the ptr address is valid and within user virtual memory   
     // page directory is most significant 10 digits of vaddr
     // mimicking pd_no. PDSHIFT = (PTSHIFT + PTBITS) = PGBITS + 10 = 22
-    uintptr_t pd = (uintptr_t) ptr >> 22;
     if (!(is_user_vaddr(ptr)) || ptr == NULL) // if it isn't
     {
         // how do compare ptr < 0?
@@ -59,10 +63,6 @@ static void * ptr_is_valid(const void *ptr)
 void syscall_init(void) {
     lock_init(&filesys_lock);
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
-}
-static void set_return(struct intr_frame *f UNUSED, uint32_t input)
-{
-    (f->eax) = input;
 }
 
 static void syscall_halt(void)
@@ -105,9 +105,10 @@ static bool syscall_create(const char * file, unsigned size)
 static bool syscall_remove(const char *file)
 {
     // gotta do some other check maybe???
-    if (ptr_is_valid((void*) file) != NULL)
+    char * f = (char *) ptr_is_valid((void*) file);
+    if (! is_white_space(*f))
     {
-        return filesys_remove((char*)ptr_is_valid((void*) file));
+        return filesys_remove(f);
     }
     else
     {
@@ -117,15 +118,17 @@ static bool syscall_remove(const char *file)
 }
 static int syscall_open(const char *file)
 {
-    
-    if (ptr_is_valid((void*) file) != NULL)
+    char * f = (char *) ptr_is_valid((void*) file);
+    if (! is_white_space(*f))
     {
         int fd = find_available_fd();
-        thread_current()->open_files[fd] = filesys_open((char*)ptr_is_valid((void*) file));
+        thread_current()->open_files[fd] = filesys_open(f);
         if (thread_current()->open_files[fd] == NULL)
         {
             return -1;
         }
+        // deny writes to executables
+        
         return fd;
     }
     else
@@ -142,16 +145,16 @@ static int syscall_wait(int pid)
 static void syscall_handler(struct intr_frame *f UNUSED) {
 
     long intr_num;
-    long arg0;
-    long arg1;
-    long arg2;
+    long *arg0;
+    long *arg1;
+    long *arg2;
 
     if (ptr_is_valid((void*) f->esp) != NULL)
     {
         intr_num = *((long *) f->esp) ;
-        arg0 = *(((long *) f->esp) + 1); 
-        arg1 = *(((long *) f->esp) + 2); 
-        arg2 = *(((long *) f->esp) + 3); 
+        arg0 = (((long *) f->esp) + 1); 
+        arg1 = (((long *) f->esp) + 2); 
+        arg2 = (((long *) f->esp) + 3); 
     }
     else
     {
@@ -166,61 +169,144 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             syscall_halt();
             break;
         case  SYS_EXIT:                   /*!< Terminate this process. */
-            syscall_exit(arg0);
+            if(ptr_is_valid(arg0))
+            {
+                syscall_exit(*arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             break;
         case  SYS_EXEC:                   /*!< Start another process. */
-            syscall_exec((char *) arg0);
+            if(ptr_is_valid(arg0))
+            {
+		syscall_exec(*(char **) arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
             // process wait
-            syscall_wait((int) arg0);
+            if(ptr_is_valid(arg0))
+            {
+	        syscall_wait((int) *arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            } 
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
-            // need to get the string via a function from ardan 
-            syscall_create((char *) arg0, (int) arg1);
+            if(ptr_is_valid(arg0) && ptr_is_valid(arg1))
+            {
+                syscall_create(*(char **) arg0, (int) *arg1);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
             lock_acquire(&filesys_lock);
-            syscall_remove((char *) arg0);
-            
+            if(ptr_is_valid(arg0))
+            {
+		syscall_remove(*(char **) arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             lock_release(&filesys_lock);
             break;
         case  SYS_OPEN:                   /*!< Open a file. */
             lock_acquire(&filesys_lock);
-            syscall_open((char *) arg0);
-            
+            if(ptr_is_valid(arg0))
+            {
+                syscall_open(*(char **) arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
+
             lock_release(&filesys_lock);
             break;
         case  SYS_FILESIZE:               /*!< Obtain a file's size. */
             lock_acquire(&filesys_lock);
-            f->eax = sys_filesize(arg0);
+            if(ptr_is_valid(arg0))
+            {
+                f->eax = sys_filesize(*arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             lock_release(&filesys_lock);
             break;
         case  SYS_READ:                   /*!< Read from a file. */
             lock_acquire(&filesys_lock);
-            f->eax = sys_read(arg0, (void *)arg1, arg2);
+            if(ptr_is_valid(arg0) && ptr_is_valid(arg1) && ptr_is_valid(arg2))
+            {
+                f->eax = sys_read(*arg0, *(void **)arg1, *arg2);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             lock_release(&filesys_lock);
             break;
         case  SYS_WRITE:                  /*!< Write to a file. */
             lock_acquire(&filesys_lock);
-            f->eax = sys_write(arg0, (void *)arg1, arg2);
+            if(ptr_is_valid(arg0) && ptr_is_valid(arg1) && ptr_is_valid(arg2))
+            {
+                f->eax = sys_write(*arg0,* (void **)arg1, *arg2);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             lock_release(&filesys_lock);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
             lock_acquire(&filesys_lock);
-            sys_seek(arg0, arg1);
+            if(ptr_is_valid(arg0) && ptr_is_valid(arg1))
+            {
+		sys_seek(*arg0, *arg1);                
+            }
+            else
+            {
+                syscall_exit(-1);
+            }           
             lock_release(&filesys_lock);
             break;
         case  SYS_TELL:                   /*!< Report current position in a file. */
             lock_acquire(&filesys_lock);
-            f->eax = sys_tell(arg0);
+            if(ptr_is_valid(arg0))
+            {
+                f->eax = sys_tell(*arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
             lock_release(&filesys_lock);
             break;
         case  SYS_CLOSE:                  /*!< Close a file. */
 
             lock_acquire(&filesys_lock);
-            sys_close(arg0);
+            if(ptr_is_valid(arg0))
+            {
+                sys_close(*arg0);
+            }
+            else
+            {
+                syscall_exit(-1);
+            }
+
             lock_release(&filesys_lock);
             break;
 
@@ -253,7 +339,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
 static int find_available_fd(void)
 {
     int i;
-    for (i = 0; i < MAX_FILES; i++)
+    for (i = 2; i < MAX_FILES; i++)
     {
         if (thread_current()->open_files[i] != NULL)
             return i;

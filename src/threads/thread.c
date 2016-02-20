@@ -287,9 +287,9 @@ void thread_exit(void) {
          {
            struct list_elem *e = list_pop_front (&curr->children);
            //set thread to dead
-           if (list_entry(e, struct thread, child_of)->status == THREAD_WAITING)
+	   if(list_entry(e, struct thread, child_of)->status == THREAD_WAITING)
            {
-               list_entry(e, struct thread, child_of)->status = THREAD_DYING;
+                list_entry(e, struct thread, child_of)->status = THREAD_DYING;
            }
          }
 
