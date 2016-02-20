@@ -65,6 +65,12 @@ static void push_char(char **esp, char c)
     **esp = c;
 }
 
+static void push_int(int **esp, int i)
+{
+    (*esp) --;
+    **esp = i;
+}
+
 static void push_char_star(char ***esp, char *cs)
 {
     (*esp) --;
@@ -144,8 +150,11 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
     // Stick on argv
     push_char_star_star((char ****) &if_.esp, if_.esp);
 
+    // Stick on argc
+    push_int((int **) &if_.esp, arg_count);
+
     // And finally the nonsense return value
-    if_.esp += sizeof(nothing_really); // It'll be filled with nonsense rather than 0 but that's ok
+    if_.esp -= sizeof(&nothing_really); // It'll be filled with nonsense rather than 0 but that's ok
 
 
     /* Start the user process by simulating a return from an
@@ -216,6 +225,9 @@ int process_wait(tid_t child_tid) {
 void process_exit(void) {
     struct thread *cur = thread_current();
     uint32_t *pd;
+    
+    // Print exit message
+    printf ("%s: exit(%d)\n", cur->name, cur->exit_val);
 
     /* Destroy the current process's page directory and switch back
        to the kernel-only page directory. */

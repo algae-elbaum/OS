@@ -137,8 +137,6 @@ static int syscall_wait(int pid)
     return process_wait(pid);
 }
 
-////// File syscalls \\\\\\\/
-
 static void syscall_handler(struct intr_frame *f UNUSED) {
     long intr_num = *((long *) f->esp) ;
     long arg0 = *(((long *) f->esp) + 1); 
@@ -230,8 +228,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
         // case  SYS_INUMBER:                 /*!< Returns the inode number for a fd. */
         //     break;
         default:
-            printf("system call!\n");
-            thread_exit();
+            syscall_exit(-1);
     }
 }
 
