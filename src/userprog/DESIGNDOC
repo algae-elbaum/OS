@@ -117,6 +117,9 @@ unsafe commands/operations.
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+Each process has its own array of MAX_FILES file descriptors in the 
+process struct. A single file descriptor value will mean different
+things for different processes.
 
 ---- ALGORITHMS ----
 
