@@ -22,28 +22,27 @@ If necessary, write the page to the file system or to swap.
 The evicted frame may then be used to store a different page.
 */
 
-#include <list.h>
 #include "threads/vaddr.h"
-#include "frame_table.h"
+#include "threads/palloc.h"
+#include "frame.h"
 
-#define frame_entry_of(elem) list_entry(elem, struct frame_entry, elem)
+#define NUM_FRAMES 256
 
-struct frame_entry
+typedef struct frame_entry
 {
     uintptr_t *frame_ptr;
-    void *page_table; // The page table with a referenceto this frame.
-    struct list_elem elem;
-}
+    void *page_table; // The page table with a reference to this frame.
+} frame_entry;
 
-// IAMA frame table
-static struct list frame_table; // Access only through functions in this file
+// IAMA frame table. AHAHA delicious static allocation
+static frame_entry frame_table[NUM_FRAMES] = {{0}}; // Access only through functions in this file
 
 void init_frame_table()
 {
-    list_init(&frame_table);
+    // Maybe something
 }
 
-void evict_page()
+static void evict_page(void)
 {
     bool failed = false;
 
@@ -56,7 +55,7 @@ void evict_page()
 }
 
 // Returns a pointer to the physical address of a new frame
-uintptr_t *get_unused_frame()
+static uintptr_t get_unused_frame(void)
 {
     void *new_page = palloc_get_page(PAL_USER | PAL_ZERO);
     if (new_page == NULL) // No pages available
@@ -69,7 +68,6 @@ uintptr_t *get_unused_frame()
 
 uintptr_t *get_and_register_unused_frame(void *page_table)
 {
-    // This will add a new frame_entry to the frame_table (malloc?).
     // Potentially should also take care of adding the reference to the frame to the
     // page table since the two of those shouldn't ever really happen seperately, so
     // keeping them togoether here means we don't always have to remember to do both
