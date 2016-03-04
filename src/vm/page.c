@@ -11,12 +11,32 @@ Optionally, you may use the page table itself as an index to track the members o
 the supplemental page table. You will have to modify the Pintos page table 
 implementation in pagedir.c to do so. We recommend this approach for advanced 
 students only. See section A.7.4.2 Page Table Entry Format, for more information.
+
+Note that accesses to the suppl_page table can be done concurrently, however
+any modifications need to hold a lock of some kind. There are a bunch of choices
+for what type of lock to use. For example, we could make each particular part 
+of the table have its own write-lock this would allow for simaltaneous reads
+and writes. However, having this many locks would likely harm system
+resources and actually take longer. It is also more complex and error-prone
+though it would be an interesting idea to explore in a future project.
+Thus, we will make a simple lock system. This will likely cause massive slow
+downs, but just locking the whole table is safe. IF time allows, change this 
+system so that we can get concurrent reads.
 */
 
 /* To set up the supplpage table later
 struct hash suppl_page_table;
 
 hash_init (&suppl_page_table, page_hash, page_less, NULL);*/
+
+/* To insert values into the page table we want
+
+hash_insert (&pages, &p->hash_elem);
+
+Since this is a hash we can assert that there are no collisions
+but if we want to check for that we need hash_find. 
+It is for that reason that we need the suppl_page_less function
+because we need an ordering on the suppl_page objects */
 
 /* Returns a hash value for page p. */
 unsigned suppl_page_hash (const struct hash_elem *p_, void *virtual_mem UNUSED)

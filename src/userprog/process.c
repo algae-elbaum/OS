@@ -45,6 +45,14 @@ tid_t process_execute(const char *cmd) {
     char *file_name, *temp;
     file_name = strtok_r(cmd_copy2, " ", &temp);
 
+   // Setup the information in the supplemental page table
+   // we need to create a suppl_page object which has values for
+   // readonly, v_addr, p_addr, size, and file_name
+   // Since this is an executable, it should be RO.
+   // We can get its addrs from the frame table (I think)
+   // I'm not sure where to get size, but we can get the
+   // filename from the input to this function, *cmd
+
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, cmd_copy);
 
