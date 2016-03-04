@@ -22,15 +22,19 @@ If necessary, write the page to the file system or to swap.
 The evicted frame may then be used to store a different page.
 */
 
+#include <debug.h>
+#include <stdint.h>
 #include "threads/vaddr.h"
 #include "threads/palloc.h"
 #include "frame.h"
 
-#define NUM_FRAMES 256
+// This is ripped from the calculation in the initialization in palloc.c 
+// (1024 comes from hacky gdb experimentation top figure out init_ram_pages)
+#define NUM_FRAMES (((1024 * PGSIZE - 1024 * 1024) / PGSIZE) / 2)
 
 typedef struct frame_entry
 {
-    uintptr_t *frame_ptr;
+    uintptr_t frame_ptr; // Point to the physical address of the frame
     void *page_table; // The page table with a reference to this frame.
 } frame_entry;
 
@@ -42,34 +46,77 @@ void init_frame_table()
     // Maybe something
 }
 
+static int find_available_frame_idx(void)
+{
+    int i;
+    for (i = 0; i < NUM_FRAMES; i++)
+    {
+        if (frame_table[i].page_table == NULL)
+            return i;
+    }
+    return -1;
+}
+
+// For now, this just finds the first frame. In the future it should be smarter
+static int find_frame_to_evict(void)
+{
+    int i;
+    for (i = 0; i < NUM_FRAMES; i++)
+    {
+        if (frame_table[i].page_table != NULL)
+            return i;
+    }
+    return -1;
+}
+
+// Take care of 
+static void clean_up_frame(frame_entry frame)
+{
+    // umm... what the hell?
+}
+
 static void evict_page(void)
 {
+    PANIC("nuh uh uh. You forgot the magic word");
     bool failed = false;
 
     // try to do some stuff
+    int evict_idx = find_frame_to_evict();
+    clean_up_frame(frame_table[evict_idx]);
+    palloc_free_page(ptov(frame_table[evict_idx].frame_ptr));
+    frame_table[evict_idx].frame_ptr = 0;
+    frame_table[evict_idx].page_table = NULL;
     
+    // TODO swapping something or something
+
     if (failed)
     {
-        // panic somehow
+        PANIC("Couldn't evict page");
     }
 }
 
 // Returns a pointer to the physical address of a new frame
-static uintptr_t get_unused_frame(void)
+static uintptr_t get_unused_frame(void *page_table)
 {
+    // This shouldn't actually be necessary if NUM_FRAMES is what I think
+    // it should be, but it doesn't hurt to be careful
+    if (find_available_frame_idx() == -1)
+    {
+        evict_page();
+    }
     void *new_page = palloc_get_page(PAL_USER | PAL_ZERO);
-    if (new_page == NULL) // No pages available
+    if (new_page == NULL) // No pages available, gotta evict
     {
         evict_page();
         new_page = palloc_get_page(PAL_USER | PAL_ZERO);
-    } 
-    return vtop(new_page); // vtop translates kernel virtual memory to physical memory
-}
+        if (new_page == NULL) // If it's still mad for some reason even after evicting
+            PANIC("Couldn't get a new frame");
+    }
 
-uintptr_t *get_and_register_unused_frame(void *page_table)
-{
-    // Potentially should also take care of adding the reference to the frame to the
-    // page table since the two of those shouldn't ever really happen seperately, so
-    // keeping them togoether here means we don't always have to remember to do both
-    return NULL;
-}
+    // Have a new page/frame, stick it into the frame table
+    int i = find_available_frame_idx();
+    frame_table[i].frame_ptr = vtop(new_page);
+    frame_table[i].page_table = page_table;
+
+    return vtop(new_page); // vtop translates kernel virtual memory to physical memory
+}   
