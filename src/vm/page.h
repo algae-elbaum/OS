@@ -1,5 +1,7 @@
 #include <hash.h>
 
+/**** Is there a reason to make the suppl page and hashing visible to other files? ****/
+
 struct suppl_page
 {
    /* We have some extra information that we need to keep track of for 
@@ -12,14 +14,17 @@ struct suppl_page
                     // '\0' because files shoudn't be just named the empty string  
    struct hash_elem hash_elem; 
 // suppl_pages need to be part of a hash table so that we can get things out
-}
+};
 
 unsigned suppl_page_hash (const struct hash_elem *p_, void *virtual_mem UNUSED);
 
 bool page_less (const struct hash_elem *a_, const struct hash_elem *b_,
            void *aux UNUSED);
 
- 	
+// For eviction
+bool write_out_page(void *page);
+
+/* 	
 Now we can manipulate the hash table we've created. If p is a pointer to a struct page, we can insert it into the hash table with:
  	
 hash_insert (&pages, &p->hash_elem);
@@ -36,3 +41,4 @@ A.8.7 Synchronization
 
 The hash table does not do any internal synchronization. It is the caller's responsibility to synchronize calls to hash table functions. In general, any number of functions that examine but do not modify the hash table, such as hash_find() or hash_next(), may execute simultaneously. However, these function cannot safely execute at the same time as any function that may modify a given hash table, such as hash_insert() or hash_delete(), nor may more than one function that can modify a given hash table execute safely at once.
 It is also the caller's responsibility to synchronize access to data in hash table elements. How to synchronize access to this data depends on how it is designed and organized, as with any other data structure.
+*/
