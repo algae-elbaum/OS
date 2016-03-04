@@ -75,7 +75,13 @@ struct suppl_page * suppl_page_lookup (const void *address)
 
 // For evicting a page. If the page is dirty, write it out to a file or swap
 // slot as appropriate. Use the suppl page entry to figure out what's needed
-bool write_out_page(void *page)
+bool write_out_page(void *page UNUSED)
 {
   return false;
+}
+
+// Do hashy things to get the suppl page
+suppl_page *suppl_page_lookup(void *vaddr UNUSED)
+{
+    return NULL;
 }
