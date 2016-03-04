@@ -88,7 +88,7 @@ static void evict_page(void)
 }
 
 // Returns a pointer to the physical address of a new frame
-static uintptr_t get_unused_frame(struct thread *holding_thread, void *upage)
+uintptr_t get_unused_frame(struct thread *holding_thread, void *upage)
 {
     // This shouldn't actually be necessary if NUM_FRAMES is what I think
     // it should be, but it doesn't hurt to be careful

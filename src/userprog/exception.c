@@ -1,9 +1,15 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include "userprog/gdt.h"
+#include "userprog/process.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/pte.h"
+#include "threads/vaddr.h"
+#include "vm/page.h"
+#include "vm/frame.h"
 
 /*! Number of page faults processed. */
 static long long page_fault_cnt;
@@ -136,12 +142,55 @@ static void page_fault(struct intr_frame *f) {
 
     /* To implement virtual memory, delete the rest of the function
        body, and replace it with code that brings in the page to
-       which fault_addr refers. */
+       which fault_addr refers. 
     printf("Page fault at %p: %s error %s page in %s context.\n",
            fault_addr,
            not_present ? "not present" : "rights violation",
            write ? "writing" : "reading",
            user ? "user" : "kernel");
-    kill(f);
+    kill(f); */
+    // 1. Locate the page that faulted in the suppl_page_table
+    suppl_page * faulted_page = suppl_page_lookup(fault_addr);
+    if (faulted_page == NULL)
+    {
+        process_exit();
+    }
+    char * file_name = faulted_page->file_name;
+    // We can use that to determine if it is a file or not. 
+    // There are three cases: file, all 0s, swap
+   
+    // If it's readonly and we tried to write, thne there's a problem
+    if (faulted_page->read_only && write)
+    {
+        process_exit();
+    }
+    // If a user tried to do it and its meant to be in kernel mode, we have a problem.
+    if(user && ! is_user_vaddr(fault_addr))
+    {
+        process_exit();
+    }
+
+    // TODO bring in the page for which the fault occured
+    if(not_present) 
+    {
+        // Put something into the suppl_page table
+        void * k_virt_addr = pte_get_page((uint32_t) fault_addr);
+        uintptr_t phys_mem = get_unused_frame(thread_current(), (void *) pg_no(fault_addr));
+        // We want to copy the memory of the physical memory into the frame table.
+	// There are three cases, swap, file and 0s
+        if(file_name == '\0')
+        {
+            // We know that it is either all 0s or in swap
+            // TODO check if in swap
+            // Else we have all zeros 
+	    memset((void *) phys_mem, 0, PGSIZE);
+        }
+        else
+        {
+            // Clearly its a file, so let's copy that in.
+            // TODO uhhhh how?
+            
+        }
+    }
 }
 

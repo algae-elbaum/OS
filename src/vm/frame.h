@@ -1,3 +1,2 @@
 
-void init_frame_table(void);
-uintptr_t *get_and_register_unused_frame(void *page_table);
+uintptr_t get_unused_frame(struct thread *holding_thread, void *upage);
