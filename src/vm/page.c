@@ -12,3 +12,37 @@ the supplemental page table. You will have to modify the Pintos page table
 implementation in pagedir.c to do so. We recommend this approach for advanced 
 students only. See section A.7.4.2 Page Table Entry Format, for more information.
 */
+
+/* To set up the supplpage table later
+struct hash suppl_page_table;
+
+hash_init (&suppl_page_table, page_hash, page_less, NULL);*/
+
+/* Returns a hash value for page p. */
+unsigned suppl_page_hash (const struct hash_elem *p_, void *virtual_mem UNUSED)
+{
+  const struct suppl_page *p = hash_entry (p_, struct suppl_page, hash_elem);
+  return hash_bytes (&p->addr, sizeof p->addr);
+}
+
+/* Returns true if page a precedes page b. */
+bool suppl_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
+           void *aux UNUSED)
+{
+  const struct suppl_page *a = hash_entry (a_, struct suppl_page, hash_elem);
+  const struct suppl_page *b = hash_entry (b_, struct suppl_page, hash_elem);
+
+  return a->addr < b->addr;
+}
+
+/* Returns the page containing the given virtual address,
+   or a null pointer if no such page exists. */
+struct suppl_page * suppl_page_lookup (const void *address)
+{
+  struct suppl_page p;
+  struct hash_elem *e;
+
+  p.addr = address;
+  e = hash_find (&suppl_page_table, &p.hash_elem);
+  return e != NULL ? hash_entry (e, struct suppl_page, hash_elem) : NULL;
+}
