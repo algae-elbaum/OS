@@ -207,12 +207,8 @@ static void page_fault(struct intr_frame *f) {
             if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
                 memset((void *) paddr, 0, PGSIZE);
             // else
-                // Need to swap in
+                // TODO Need to swap in
 
-        }
-        else if (faulted_page->file_name == NULL) // Shit's swapped yo
-        {
-            
         }
 
         else // It's part of a file, copy in the part we need
