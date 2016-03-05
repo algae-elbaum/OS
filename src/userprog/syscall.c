@@ -7,6 +7,7 @@
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "userprog/process.h"
+#include "lib/user/syscall.h"
 
 #define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
@@ -136,6 +137,27 @@ static int syscall_open(const char *file)
 static int syscall_wait(int pid)
 {
     return process_wait(pid);
+}
+
+static mapid_t syscall_mmap(int fd, void *addr)
+{
+    lock_acquire(&filesys_lock);
+    struct file *this_file = thread_current()->open_files[fd];
+    int file_size = file_length(this_file);
+    int curr_pos = 0;
+    while(curr_pos < file_size)
+    {
+	//make new suppl_page table entry
+        suppl_page * page = new_suppl_page(this_file->deny_write, addr + curr_pos, NULL, this_file->file_name, 
+   curr_pos, ((PGSIZE < file_size - curr_pos) ? PGSIZE : file_size - curr_pos));
+
+        hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
+        curr_pos += PGSIZE;
+    }	
+ 
+    lock_release(&filesys_lock);
+    // TODO figure out what to return
+    return 1;
 }
 
 static void syscall_handler(struct intr_frame *f UNUSED) {
@@ -307,7 +329,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             break;
 
         case  SYS_MMAP:                   /*!< Map a file into memory. */
-            // TODO
+	    syscall_mmap(arg0, arg1);           
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
             // TODO
