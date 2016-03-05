@@ -10,6 +10,7 @@
 #include "threads/vaddr.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include <hash.h>
 
 /*! Number of page faults processed. */
 static long long page_fault_cnt;
@@ -149,46 +150,64 @@ static void page_fault(struct intr_frame *f) {
            write ? "writing" : "reading",
            user ? "user" : "kernel");
     kill(f); */
+
     // 1. Locate the page that faulted in the suppl_page_table
     suppl_page *faulted_page = suppl_page_lookup(&thread_current()->suppl_page_table,
                                                   (void *) pg_no(fault_addr));
+
+    // Either the page doesn't exist because we're not allowed to use it, or the
+    // stack needs extending
     if (faulted_page == NULL)
     {
-        // TODO potentially extend the stack
-        process_exit();
+        // See if we should extend the stack
+        if (fault_addr > f->esp - 64 && is_user_vaddr(fault_addr))
+        {
+            // Extend the stack:
+            // Create the supplemental page table entry for it
+            bool read_only = false;
+            void *paddr = NULL;
+            char *file_name = NULL;
+            unsigned file_offset = 0;
+            unsigned bytes_to_read = 0;
+            faulted_page = new_suppl_page(read_only, fault_addr, paddr, 
+                                            file_name, file_offset, bytes_to_read);
+            // Add the supplemental page to the supplemental page table
+            hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
+        }
+        // If it's not a stack extension, destroy the process
+        else
+            kill(f);
     }
-    char * file_name = faulted_page->file_name;
-    // We can use that to determine if it is a file or not. 
-    // There are three cases: file (nonempty filename), all 0s (empty filename), 
-    // and swap (NULL filename)
-   
+
+    // Now that we're guaranteed to have a non-null faulted_page, do some checks
     // If it's readonly and we tried to write, then there's a problem
     if (faulted_page->read_only && write)
     {
-        process_exit();
+        kill(f);
     }
     // If a user tried to do it and its meant to be in kernel mode, we have a problem.
     if(user && ! is_user_vaddr(fault_addr))
     {
-        process_exit();
+        kill(f);
     }
 
-    // TODO bring in the page for which the fault occured
+    // Now get a frame, tie it to the faulting page, and fill it with the data it wants
     if(not_present) 
     {
         // Put something into the suppl_page table
         void * k_virt_addr = pte_get_page((uint32_t) fault_addr);
-        uintptr_t phys_mem = get_unused_frame(thread_current(), (void *) pg_no(fault_addr));
+        uintptr_t paddr = get_unused_frame(thread_current(), (void *) pg_no(fault_addr));
         // We want to copy the memory of the physical memory into the frame table.
-      	// There are three cases, swap, file and 0s
-        if(strcmp(file_name, "") == 0)
+        // There are three cases, swap, file and 0s
+        if(faulted_page->file_name == NULL) // All zeros or swap
         {
-            // We know that it is either all 0s or in swap
-            // TODO check if in swap
-            // Else we have all zeros 
-      	    memset((void *) phys_mem, 0, PGSIZE);
+            if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
+                memset((void *) paddr, 0, PGSIZE);
+            // else
+                // Need to swap in
+
         }
-        else if (file_name == NULL)
+        else if (faulted_page->file_name == NULL)
         {
             // Shit's swapped yo
         }
@@ -199,7 +218,5 @@ static void page_fault(struct intr_frame *f) {
             
         }
     }
-    // Shouldn't happen
-    process_exit();
 }
 

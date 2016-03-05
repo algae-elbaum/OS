@@ -26,6 +26,7 @@ system so that we can get concurrent reads.
 
 #include <debug.h>
 #include "page.h"
+#include "threads/malloc.h"
 
 
 
@@ -67,6 +68,20 @@ suppl_page * suppl_page_lookup (struct hash *suppl_page_table, const void *addre
 	return e != NULL ? hash_entry (e, struct suppl_page, hash_elem) : NULL;
 }
 
+
+suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char* file_name, 
+                                unsigned file_offset, unsigned bytes_to_read)
+{
+    suppl_page *new_suppl_page = (suppl_page *) malloc(sizeof(suppl_page));
+    new_suppl_page->read_only = read_only;
+    new_suppl_page->vaddr = vaddr;
+    new_suppl_page->paddr = paddr;
+    new_suppl_page->swap_index = -1;
+    new_suppl_page->file_name = file_name; // If we want to use the anonymous file, then we can call it NULL
+    new_suppl_page->file_offset = file_offset;
+    new_suppl_page->bytes_to_read = bytes_to_read;
+    return new_suppl_page;
+}
 // For evicting a page. If the page is dirty, write it out to a file or swap
 // slot as appropriate. Use the suppl page entry to figure out what's needed
 bool write_out_page(void *page UNUSED)
