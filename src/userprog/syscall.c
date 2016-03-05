@@ -27,8 +27,6 @@ static int find_available_fd(void);
 
 static void syscall_exit(int status);
 
-static struct lock filesys_lock;
-
 static void * ptr_is_valid(const void *ptr);
 
 static bool is_white_space(char input)

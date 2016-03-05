@@ -2,8 +2,17 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
+#include "threads/synch.h"
 
 struct inode;
+
+/*
+ 	This is kinda evil, and should die as soon as we start set 6. But for now
+ 	we must prevent any concurrent access to the filesystem, so anything that
+ 	does anything in the filesystem must acquire this lock
+*/
+extern struct lock filesys_lock;
+
 
 /* Opening and closing files. */
 struct file *file_open (struct inode *);

@@ -8,8 +8,11 @@
 #include "threads/thread.h"
 #include "threads/pte.h"
 #include "threads/vaddr.h"
+#include "threads/synch.h"
 #include "vm/page.h"
 #include "vm/frame.h"
+#include "filesys/file.h"
+#include "filesys/filesys.h"
 #include <hash.h>
 
 /*! Number of page faults processed. */
@@ -207,15 +210,23 @@ static void page_fault(struct intr_frame *f) {
                 // Need to swap in
 
         }
-        else if (faulted_page->file_name == NULL)
+        else if (faulted_page->file_name == NULL) // Shit's swapped yo
         {
-            // Shit's swapped yo
-        }
-        else
-        {
-            // Clearly its a file, so let's copy that in.
-            // TODO uhhhh how?
             
+        }
+
+        else // It's part of a file, copy in the part we need
+        {
+            // Will have to think harder about general concurrency, but this is 
+            // file stuff, so we at least need to lock the filesystem on it 
+            lock_acquire(&filesys_lock);
+            // Since memory mapping has got to work even when the file is closed,
+            // I think it has to be done this way
+            struct file *f = filesys_open(faulted_page->file_name);
+            int bytes_written = file_read(f, ptov((uintptr_t) faulted_page->paddr), PGSIZE);
+            memset((void *) paddr + bytes_written, 0, PGSIZE - bytes_written);
+            file_close(f);
+            lock_release(&filesys_lock);
         }
     }
 }
