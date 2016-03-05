@@ -150,7 +150,7 @@ static void page_fault(struct intr_frame *f) {
            user ? "user" : "kernel");
     kill(f); */
     // 1. Locate the page that faulted in the suppl_page_table
-    suppl_page * faulted_page = suppl_page_lookup(fault_addr);
+    suppl_page *faulted_page = suppl_page_lookup((void *) pg_no(fault_addr));
     if (faulted_page == NULL)
     {
         process_exit();
