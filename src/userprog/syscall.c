@@ -50,14 +50,12 @@ static void * ptr_is_valid(const void *ptr)
         //pagedir_destroy((uint32_t *) pd);
         syscall_exit(-1);
     }
-    else // if the location is valid
-    {
-        // lookup page uses page directory (most significant 10 digits of
-        // vaddr), vaddr, and CREATE = true(if not found, 
-        // create new page table, return its ptr) or false(if not found,
-        // return null)
-        return pagedir_get_page(thread_current()->pagedir, ptr);
-    }
+    // if the location is valid:
+    // lookup page uses page directory (most significant 10 digits of
+    // vaddr), vaddr, and CREATE = true(if not found, 
+    // create new page table, return its ptr) or false(if not found,
+    // return null)
+    return pagedir_get_page(thread_current()->pagedir, ptr);
 }
     
 void syscall_init(void) {
@@ -310,15 +308,13 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_release(&filesys_lock);
             break;
 
-        // These are for later projects. 
+        case  SYS_MMAP:                   /*!< Map a file into memory. */
+            // TODO
+            break;
+        case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
+            // TODO
+            break;
 
-        /* Project 3 and optionally project 4. */
-        // case  SYS_MMAP:                   /*!< Map a file into memory. */
-        //     break;
-        // case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
-        //     break;
-
-        // /* Project 4 only. */
         // case  SYS_CHDIR:                  /*!< Change the current directory. */
         //     break;
         // case  SYS_MKDIR:                  /* !< Create a directory. */

@@ -9,6 +9,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "vm/page.h"
 
 #define MAX_FILES 256 // Arbitrary limit on number of open files
 
@@ -121,6 +122,7 @@ struct thread {
     /*! Owned by userprog/process.c. */
     /**@{*/
     uint32_t *pagedir;                  /*!< Page directory. */
+    struct hash suppl_page_table;       /*!< Supplemental page table. */
     /**@{*/
 #endif
 

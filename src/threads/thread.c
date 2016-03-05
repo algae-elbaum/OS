@@ -287,6 +287,7 @@ void thread_exit(void) {
          {
            struct list_elem *e = list_pop_front (&curr->children);
            //set thread to dead
+        // Hello naughty children, it's murder time
 	   if(list_entry(e, struct thread, child_of)->status == THREAD_WAITING)
            {
                 list_entry(e, struct thread, child_of)->status = THREAD_DYING;
@@ -459,6 +460,8 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     {
         t->open_files[i] = NULL; 
     }
+
+     hash_init (&t->suppl_page_table, suppl_page_hash, suppl_page_less, NULL);
 
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);

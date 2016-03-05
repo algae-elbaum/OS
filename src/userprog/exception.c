@@ -150,16 +150,19 @@ static void page_fault(struct intr_frame *f) {
            user ? "user" : "kernel");
     kill(f); */
     // 1. Locate the page that faulted in the suppl_page_table
-    suppl_page *faulted_page = suppl_page_lookup((void *) pg_no(fault_addr));
+    suppl_page *faulted_page = suppl_page_lookup(&thread_current()->suppl_page_table,
+                                                  (void *) pg_no(fault_addr));
     if (faulted_page == NULL)
     {
+        // TODO potentially extend the stack
         process_exit();
     }
     char * file_name = faulted_page->file_name;
     // We can use that to determine if it is a file or not. 
-    // There are three cases: file, all 0s, swap
+    // There are three cases: file (nonempty filename), all 0s (empty filename), 
+    // and swap (NULL filename)
    
-    // If it's readonly and we tried to write, thne there's a problem
+    // If it's readonly and we tried to write, then there's a problem
     if (faulted_page->read_only && write)
     {
         process_exit();
@@ -177,13 +180,17 @@ static void page_fault(struct intr_frame *f) {
         void * k_virt_addr = pte_get_page((uint32_t) fault_addr);
         uintptr_t phys_mem = get_unused_frame(thread_current(), (void *) pg_no(fault_addr));
         // We want to copy the memory of the physical memory into the frame table.
-	// There are three cases, swap, file and 0s
-        if(file_name == '\0')
+      	// There are three cases, swap, file and 0s
+        if(strcmp(file_name, "") == 0)
         {
             // We know that it is either all 0s or in swap
             // TODO check if in swap
             // Else we have all zeros 
-	    memset((void *) phys_mem, 0, PGSIZE);
+      	    memset((void *) phys_mem, 0, PGSIZE);
+        }
+        else if (file_name == NULL)
+        {
+            // Shit's swapped yo
         }
         else
         {
@@ -192,5 +199,7 @@ static void page_fault(struct intr_frame *f) {
             
         }
     }
+    // Shouldn't happen
+    process_exit();
 }
 

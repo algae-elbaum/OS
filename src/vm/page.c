@@ -27,7 +27,7 @@ system so that we can get concurrent reads.
 #include <debug.h>
 #include "page.h"
 
-struct hash suppl_page_table;
+
 
 /* To insert values into the page table we want
 
@@ -55,24 +55,15 @@ bool suppl_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
 	return a->vaddr < b->vaddr;
 }
 
-void init_suppl_page_table(void)
-{
-    hash_init (&suppl_page_table, suppl_page_hash, suppl_page_less, NULL);
-}
-
 /* Returns the page containing the given virtual address,
 	 or a null pointer if no such page exists. */
-struct suppl_page * suppl_page_lookup (const void *address)
+suppl_page * suppl_page_lookup (struct hash *suppl_page_table, const void *address)
 {
 	struct suppl_page p;
 	struct hash_elem *e;
 
-    // Gotta hash with the thread in addition to the page somehow, since virtual
-    // page addresses overlap all the time between user processes. Is this what 
-    // aux is for?
-    p.holding_thread = thread_current();
 	p.vaddr = address;
-	e = hash_find (&suppl_page_table, &p.hash_elem);
+	e = hash_find (suppl_page_table, &p.hash_elem);
 	return e != NULL ? hash_entry (e, struct suppl_page, hash_elem) : NULL;
 }
 
@@ -82,3 +73,6 @@ bool write_out_page(void *page UNUSED)
 {
 	return false;
 }
+
+// Slap a file into pages
+// mapid_t mmap();
