@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "vm/page.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -460,8 +461,6 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     {
         t->open_files[i] = NULL; 
     }
-
-     hash_init (&t->suppl_page_table, suppl_page_hash, suppl_page_less, NULL);
 
     old_level = intr_disable();
     list_push_back(&all_list, &t->allelem);

@@ -88,6 +88,3 @@ bool write_out_page(void *page UNUSED)
 {
 	return false;
 }
-
-// Slap a file into pages
-// mapid_t mmap();

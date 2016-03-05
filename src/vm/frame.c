@@ -96,11 +96,11 @@ uintptr_t get_unused_frame(struct thread *holding_thread, void *upage)
     {
         evict_page();
     }
-    void *new_page = palloc_get_page(PAL_USER | PAL_ZERO);
+    void *new_page = palloc_get_page(PAL_USER);
     if (new_page == NULL) // No pages available, gotta evict
     {
         evict_page();
-        new_page = palloc_get_page(PAL_USER | PAL_ZERO);
+        new_page = palloc_get_page(PAL_USER);
         if (new_page == NULL) // If it's still mad for some reason even after evicting
             PANIC("Couldn't get a new frame");
     }

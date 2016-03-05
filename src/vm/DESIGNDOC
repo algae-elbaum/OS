@@ -9,7 +9,7 @@
 >> Fill in the names and email addresses of your group members.
 
 Kyle Seipp kseipp@caltech.edu
-
+Henry Elbaum helbaum@caltech.edu
 
 
 >> Specify how many late tokens you are using on this assignment:  
@@ -41,11 +41,15 @@ which parts.
 
 
 Kyle 15
+Henry 11
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
 Kyle: Supplemental Page Table. pair programming with henry on frame table
+Henry: Frame table, eviction minus the swapping out/writing to files, stack
+       extension, reading in from mmapped pages on pagefault, some of the
+       structure of the supplemental page table
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is

@@ -23,9 +23,9 @@ bool write_out_page(void *page);
 suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char* file_name, 
                                 unsigned file_offset, unsigned bytes_to_read);
 
-suppl_page * suppl_page_lookup (struct hash *suppl_page_table, const void *address);
+suppl_page * suppl_page_lookup(struct hash *suppl_page_table, const void *address);
 
-unsigned suppl_page_hash (const struct hash_elem *p_, void *aux UNUSED);
+unsigned suppl_page_hash(const struct hash_elem *p_, void *aux UNUSED);
 
-bool suppl_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
+bool suppl_page_less(const struct hash_elem *a_, const struct hash_elem *b_,
            void *aux UNUSED);

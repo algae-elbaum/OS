@@ -105,6 +105,11 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
     struct intr_frame if_;
     bool success;
 
+    // Doing this here feels really really bad. It can't happen in init_thread
+    // without issues because the hash_init needs the current thread to be running
+    // and that isn't always the case in init_thread
+    hash_init (&thread_current()->suppl_page_table, suppl_page_hash, suppl_page_less, NULL);
+
     // Start tokenizing the command to get the file_name
     char *token, *save_ptr;
     token = strtok_r(cmd, " ", &save_ptr); // token is now file_name
