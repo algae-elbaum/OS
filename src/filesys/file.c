@@ -4,8 +4,6 @@
 #include "threads/malloc.h"
 
 
-
-
 struct lock filesys_lock; // global lock grossssssss
 
 /*! Opens a file for the given INODE, of which it takes ownership,

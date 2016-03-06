@@ -171,9 +171,8 @@ static void page_fault(struct intr_frame *f) {
             void *paddr = NULL;
             char *file_name = NULL;
             unsigned file_offset = 0;
-            unsigned bytes_to_read = 0;
             faulted_page = new_suppl_page(read_only, fault_addr, paddr, 
-                                            file_name, file_offset, bytes_to_read);
+                                            file_name, file_offset);
             // Add the supplemental page to the supplemental page table
             hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
         }
@@ -219,6 +218,7 @@ static void page_fault(struct intr_frame *f) {
             // Since memory mapping has got to work even when the file is closed,
             // I think it has to be done this way
             struct file *f = filesys_open(faulted_page->file_name);
+            file_seek(f, faulted_page->file_offset);
             int bytes_written = file_read(f, ptov((uintptr_t) faulted_page->paddr), PGSIZE);
             memset((void *) paddr + bytes_written, 0, PGSIZE - bytes_written);
             file_close(f);

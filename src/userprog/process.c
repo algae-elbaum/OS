@@ -496,17 +496,6 @@ static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
     /* It's okay. */
     return true;
 }
-static int min(int a, int b)
-{
-    if (a > b)
-    {
-        return b;
-    }
-    else
-    {
-        return a;
-    }
-}
 
 /*! Loads a segment starting at offset OFS in FILE at address UPAGE.  In total,
     READ_BYTES + ZERO_BYTES bytes of virtual memory are initialized, as follows:
@@ -521,6 +510,7 @@ static int min(int a, int b)
 
     Return true if successful, false if a memory allocation error or disk read
     error occurs. */
+
 static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
                          uint32_t read_bytes, uint32_t zero_bytes,
                          bool writable) {
@@ -530,56 +520,66 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
     lock_acquire(&filesys_lock);
     file_seek(file, ofs);
-
+#if 1
+    // Not using mmap because there's weirdness that needs to be set about having
+    // initial segfaults get data from the file, but subsequently they gotta use
+    // swap
     int file_size = file_length(file);
     int curr_pos = 0;
     while(curr_pos < file_size)
     {
-        //make new suppl_page table entry
-        // Since this will get sent to swap, we want a null character as the file name
-        suppl_page * page = new_suppl_page(file->deny_write, upage + curr_pos, NULL, NULL, 
-   curr_pos, min(PGSIZE, file_size - curr_pos));
-
+        // Make new suppl_page table entry
+        // Not read only becuase we definitely need to be able to modify .bss stuff
+        // Which is a little awkward since the rest should be read only
+        suppl_page * page = new_suppl_page(false, upage + curr_pos, NULL, file->file_name, curr_pos);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         curr_pos += PGSIZE;
     }
+#endif
+#if 0
+
+
+ while (read_bytes > 0 || zero_bytes > 0) {
+        /* Calculate how to fill this page.
+           We will read PAGE_READ_BYTES bytes from FILE
+           and zero the final PAGE_ZERO_BYTES bytes. */
+        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
+        size_t page_zero_bytes = PGSIZE - page_read_bytes;
+
+        /* Get a page of memory. */
+        uint8_t *kpage = palloc_get_page(PAL_USER);
+        if (kpage == NULL)
+            return false;
+
+        /* Load this page. */
+        if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
+            palloc_free_page(kpage);
+            return false;
+        }
+        memset(kpage + page_read_bytes, 0, page_zero_bytes);
+
+        /* Add the page to the process's address space. */
+        if (!install_page(upage, kpage, writable)) {
+            palloc_free_page(kpage);
+            return false; 
+        }
+
+        /* Advance. */
+        read_bytes -= page_read_bytes;
+        zero_bytes -= page_zero_bytes;
+        upage += PGSIZE;
+    }
+
+
+#endif
 
     lock_release(&filesys_lock);
     // TODO return false if any errors
     return true; 
 
-
-    /* while (read_bytes > 0 || zero_bytes > 0) { */
-        /* Calculate how to fill this page.
-           We will read PAGE_READ_BYTES bytes from FILE
-           and zero the final PAGE_ZERO_BYTES bytes. */
-/*        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-        size_t page_zero_bytes = PGSIZE - page_read_bytes;*/
-
-        /* Get a page of memory. */
-/*        uint8_t *kpage = palloc_get_page(PAL_USER);
-        if (kpage == NULL)
-            return false;
-*/
-        /* Load this page. */
-  /*      if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
-            palloc_free_page(kpage);
-            return false;
-        }
-        memset(kpage + page_read_bytes, 0, page_zero_bytes);
-*/
-        /* Add the page to the process's address space. */
-  /*      if (!install_page(upage, kpage, writable)) {
-            palloc_free_page(kpage);
-            return false; 
-        }
-*/
-        /* Advance. */
-  /*      read_bytes -= page_read_bytes;
-        zero_bytes -= page_zero_bytes;
-        upage += PGSIZE;
-    }*/
 }
+
+
 
 /*! Create a minimal stack by mapping a zeroed page at the top of
     user virtual memory. */
