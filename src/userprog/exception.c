@@ -201,7 +201,7 @@ static void page_fault(struct intr_frame *f) {
         faulted_page->paddr = (void *) paddr;   
         // We want to copy the memory of the physical memory into the frame table.
         // There are three cases, swap, file and 0s
-        if(faulted_page->file_name == NULL) // All zeros or swap
+        if(faulted_page->file_name[0] == '\0') // All zeros or swap
         {
             if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
                 memset(ptov(paddr), 0, PGSIZE);

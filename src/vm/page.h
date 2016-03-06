@@ -10,7 +10,7 @@ typedef struct suppl_page
    const void *vaddr; // user virtual address of the page
    const void *paddr;
    int swap_index; // Must be initialized to -1 when a new suppl_page is made
-   char *file_name; // If we want to use the anonymous file, then we can call it NULL
+   char file_name[14]; // If we want to use the anonymous file, then we can call it ""
    unsigned file_offset;
    unsigned bytes_to_read;
    struct hash_elem hash_elem; 

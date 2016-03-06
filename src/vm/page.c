@@ -25,6 +25,7 @@ system so that we can get concurrent reads.
 */
 
 #include <debug.h>
+#include <string.h>
 #include "page.h"
 #include "threads/malloc.h"
 #include "threads/pte.h"
@@ -64,10 +65,13 @@ suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char *file_
 {
     suppl_page *new_suppl_page = (suppl_page *) malloc(sizeof(suppl_page));
     new_suppl_page->read_only = read_only;
-    new_suppl_page->vaddr = pte_get_page((uint32_t) vaddr);
+    new_suppl_page->vaddr = (void *) (((uintptr_t) vaddr >> PGBITS) << PGBITS);
     new_suppl_page->paddr = paddr;
     new_suppl_page->swap_index = -1;
-    new_suppl_page->file_name = file_name; // If we want to use the anonymous file, then we can call it NULL
+    if (file_name != NULL)
+        memcpy(new_suppl_page->file_name, file_name, 14);
+    else
+        new_suppl_page->file_name[0] = '\0';
     new_suppl_page->file_offset = file_offset;
     new_suppl_page->bytes_to_read = bytes_to_read;
     return new_suppl_page;
