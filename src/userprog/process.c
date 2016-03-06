@@ -519,24 +519,39 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     ASSERT(ofs % PGSIZE == 0);
 
     lock_acquire(&filesys_lock);
-    file_seek(file, ofs);
 #if 1
     // Not using mmap because there's weirdness that needs to be set about having
     // initial segfaults get data from the file, but subsequently they gotta use
-    // swap
-    int file_size = file_length(file);
-    int curr_pos = 0;
-    while(curr_pos < file_size)
+    // swap. Also there's the zero_bytes weirdness that mmap doesn't handle
+    
+    unsigned file_size = file_length(file);
+    ASSERT(read_bytes < file_size - ofs);
+
+    while(read_bytes > 0)
     {
         // Make new suppl_page table entry
-        // Writable seems like the value we should use for not read only... I think
-        suppl_page * page = new_suppl_page(! writable, upage + curr_pos, NULL, file->file_name, curr_pos);
+        unsigned bytes_to_read = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
+        suppl_page * page = new_suppl_page(! writable, upage, NULL, file->file_name, ofs, bytes_to_read);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
-        curr_pos += PGSIZE;
+        ofs += PGSIZE;
+        upage += PGSIZE;
+        read_bytes -= PGSIZE;
     }
+    // And now for the zeros
+    read_bytes += PGSIZE; // So that read_bytes will be the bytes to read of the last page with file data
+    zero_bytes -= PGSIZE - read_bytes;
+    while(zero_bytes > 0)
+    {
+        suppl_page * page = new_suppl_page(! writable, upage, NULL, NULL, 0, 0);
+        hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
+        upage += PGSIZE;
+        zero_bytes -= PGSIZE;
+    }
+
 #endif
 #if 0
 
+    file_seek(file, ofs);
 
  while (read_bytes > 0 || zero_bytes > 0) {
         /* Calculate how to fill this page.
