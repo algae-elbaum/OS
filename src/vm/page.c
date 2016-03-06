@@ -86,5 +86,12 @@ suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char *file_
 // slot as appropriate. Use the suppl page entry to figure out what's needed
 bool write_out_page(void *page UNUSED)
 {
-	return false;
+ // These commented lines might be helpful in writing to a file
+    // Write out to the file
+    //        struct file * curr_file = filesys_open(curr_page->file_name);
+            // In theory, this could fail, but since we know that such a file
+            // is in the frame, we shouldn't have to worry about failures.
+      //      file_write(curr_file, ptov(curr_page->paddr), curr_page->bytes_to_read);
+
+    return false;
 }

@@ -8,6 +8,7 @@
 #include "filesys/file.h"
 #include "userprog/process.h"
 #include "lib/user/syscall.h"
+#include "threads/malloc.h"
 
 #define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
@@ -213,12 +214,21 @@ static int syscall_wait(int pid)
     return process_wait(pid);
 }
 
+struct map
+{
+    mapid_t id;
+    struct list_elem elem;
+    struct list pages;
+};
+
 static mapid_t syscall_mmap(int fd, void *addr)
 {
+    static mapid_t map_id = 0;
     ASSERT(pg_ofs(addr) == 0);
     struct file *this_file = thread_current()->open_files[fd];
     int file_size = file_length(this_file);
     int curr_pos = 0;
+    struct map curr_map;
     while(curr_pos < file_size)
     {
         //make new suppl_page table entry
@@ -226,13 +236,55 @@ static mapid_t syscall_mmap(int fd, void *addr)
                                                                  : PGSIZE;
         suppl_page * page = new_suppl_page(this_file->deny_write, addr + curr_pos, 
                                                 NULL, this_file->file_name, curr_pos, bytes_to_read);
+
+        list_push_back (&curr_map.pages, &page->elem);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         curr_pos += PGSIZE;
     }
 
-    // TODO figure out what to return
-    return 1;
+    // Each map has a unique id.
+    // Technically, this is a problem if we have > MAXINT maps preformed, but 
+    // that is unlikely to cause a problem.
+    map_id ++;
+    curr_map.id = map_id;
+    list_push_back(&thread_current()->maps, &curr_map.elem);
+    return map_id;
 }
+
+static void syscall_munmap(mapid_t id)
+{
+    struct list_elem * e = list_head (&thread_current()->maps);
+    while ((e = list_next (e)) != list_end (&thread_current()->maps))
+    {
+        if(list_entry(e, struct map, elem)->id == id)
+            break;
+    }
+    // Now we have that e which has the correct map_id
+    // So we can clean up all of the attached pages
+    // We want to remove from the suppl_page table
+    // If it is paged in, we need to write it out to the file
+    struct map * curr_map = list_entry(e, struct map, elem);
+    struct list_elem * e2 = list_head(&curr_map->pages);
+    while ((e2 = list_next (e2)) != list_end (&curr_map->pages))
+    {
+        struct suppl_page *curr_page = (list_entry(e2, struct suppl_page, elem));
+        uint32_t * pos_in_frame = lookup_page(thread_current()->pagedir, curr_page->vaddr, false);
+        if(pos_in_frame == NULL) // Then it isn't in the frame table
+        {
+        }
+        else // Then we have the address of the pagetable entry
+        {
+        // TODO replace this with evicting the page using evict_page from vm/frame.c once it is updated
+            // Write out to the file
+            struct file * curr_file = filesys_open(curr_page->file_name);
+            // In theory, this could fail, but since we know that such a file
+            // is in the frame, we shouldn't have to worry about failures.
+            file_write(curr_file, ptov((uintptr_t)curr_page->paddr), curr_page->bytes_to_read);
+        }
+        free(curr_page);
+    }
+}
+// TODO figure out list_init
 
 static void syscall_handler(struct intr_frame *f UNUSED) {
 
@@ -372,7 +424,9 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_release(&filesys_lock);
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
-            // TODO
+            lock_acquire(&filesys_lock);
+            syscall_munmap(*arg0);
+            lock_release(&filesys_lock);
             break;
 
         // case  SYS_CHDIR:                  /*!< Change the current directory. */
