@@ -48,7 +48,7 @@ static void * ptr_is_valid(const void *ptr)
     // return null)
     return pagedir_get_page(thread_current()->pagedir, ptr);
 }
-    
+
 void syscall_init(void) {
     lock_init(&filesys_lock);
     intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall");
@@ -135,7 +135,7 @@ static int syscall_open(const char *file)
             return -1;
         }
         // deny writes to executables
-        
+
         return fd;
     }
     else
@@ -221,13 +221,13 @@ static mapid_t syscall_mmap(int fd, void *addr)
     int curr_pos = 0;
     while(curr_pos < file_size)
     {
-	//make new suppl_page table entry
+        //make new suppl_page table entry
         suppl_page * page = new_suppl_page(this_file->deny_write, addr + curr_pos, 
                                                 NULL, this_file->file_name, curr_pos);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         curr_pos += PGSIZE;
-    }	
- 
+    }
+
     // TODO figure out what to return
     return 1;
 }
@@ -250,7 +250,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
     {
         syscall_exit(-1);
     }
-    
+
     switch (intr_num)
     {
         /* Projects 2 and later. */
@@ -264,7 +264,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
         case  SYS_EXEC:                   /*!< Start another process. */
             if(ptr_is_valid(*(char **) arg0))
             {
-        		syscall_exec(*(char **) arg0);
+                syscall_exec(*(char **) arg0);
             }
             else
             {
@@ -273,7 +273,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
             // process wait
-	        syscall_wait((int) *arg0);
+            syscall_wait((int) *arg0);
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(*(char **) arg0))
@@ -290,7 +290,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(*(char **) arg0))
             {
-        		syscall_remove(*(char **) arg0);
+                syscall_remove(*(char **) arg0);
             }
             else
             {
@@ -342,7 +342,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
             lock_acquire(&filesys_lock);
-    		syscall_seek(*arg0, *arg1);                
+            syscall_seek(*arg0, *arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_TELL:                   /*!< Report current position in a file. */
@@ -361,7 +361,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_acquire(&filesys_lock);
             if(ptr_is_valid(*(void **) arg1))
             {
-        	    f->eax = syscall_mmap(*arg0, *(void **) arg1);           
+                f->eax = syscall_mmap(*arg0, *(void **) arg1);
             }
             else
             {

@@ -146,7 +146,7 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
         }
         args_ptrs[i] = ((char *) if_.esp);
     }
-   
+
     // Done with this forever now
     palloc_free_page(cmd);
 
@@ -198,14 +198,12 @@ int process_wait(tid_t child_tid) {
     for (e = list_begin (&curr->children); e != list_end (&curr->children);
            e = list_next (e))
         {
-          
           f = list_entry(e, struct thread, child_of);
           if (f->tid == child_tid)
           {
             is_a_child = 1;
             break;
           }
-          
         }
     if (! is_a_child)
     {
@@ -240,7 +238,7 @@ int process_wait(tid_t child_tid) {
 void process_exit(void) {
     struct thread *cur = thread_current();
     uint32_t *pd;
-    
+
     // Print exit message
     printf ("%s: exit(%d)\n", cur->name, cur->exit_val);
 
@@ -273,7 +271,7 @@ void process_activate(void) {
     /* Set thread's kernel stack for use in processing interrupts. */
     tss_update();
 }
-
+
 /*! We load ELF binaries.  The following definitions are taken
     from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -450,7 +448,7 @@ done:
     file_close(file);
     return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page(void *upage, void *kpage, bool writable);
@@ -473,7 +471,7 @@ static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
     /* The segment must not be empty. */
     if (phdr->p_memsz == 0)
         return false;
-  
+
     /* The virtual memory region must both start and end within the
        user address space range. */
     if (!is_user_vaddr((void *) phdr->p_vaddr))
@@ -574,7 +572,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
     lock_release(&filesys_lock);
     // TODO return false if any errors
-    return true; 
+    return true;
 
 }
 
