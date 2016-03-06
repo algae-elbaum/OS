@@ -8,7 +8,7 @@ typedef struct suppl_page
       each page that we use. */
    bool read_only;
    const void *vaddr; // user virtual address of the page
-   const void *paddr;
+   const void *kaddr;
    int swap_index; // Must be initialized to -1 when a new suppl_page is made
    char file_name[14]; // If we want to use the anonymous file, then we can call it ""
    unsigned file_offset;
@@ -22,10 +22,10 @@ typedef struct suppl_page
 // For eviction
 bool write_out_page(void *page);
 
-suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char *file_name, 
+suppl_page *new_suppl_page(bool read_only, void *vaddr, void *kaddr, char *file_name, 
                                 unsigned file_offset, unsigned bytes_to_read);
 
-suppl_page * suppl_page_lookup(struct hash *suppl_page_table, const void *address);
+suppl_page * suppl_page_lookup(struct hash *suppl_page_table, const void *vaddr);
 
 unsigned suppl_page_hash(const struct hash_elem *p_, void *aux UNUSED);
 

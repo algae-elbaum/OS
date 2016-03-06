@@ -49,24 +49,24 @@ bool suppl_page_less (const struct hash_elem *a_, const struct hash_elem *b_,
 
 /* Returns the page containing the given virtual address,
 	 or a null pointer if no such page exists. */
-suppl_page * suppl_page_lookup (struct hash *suppl_page_table, const void *address)
+suppl_page * suppl_page_lookup (struct hash *suppl_page_table, const void *vaddr)
 {
 	struct suppl_page p;
 	struct hash_elem *e;
 
-	p.vaddr = address;
+	p.vaddr = vaddr;
 	e = hash_find (suppl_page_table, &p.hash_elem);
 	return e != NULL ? hash_entry (e, struct suppl_page, hash_elem) : NULL;
 }
 
 
-suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char *file_name, 
+suppl_page *new_suppl_page(bool read_only, void *vaddr, void *kaddr, char *file_name, 
                                 unsigned file_offset, unsigned bytes_to_read)
 {
     suppl_page *new_suppl_page = (suppl_page *) malloc(sizeof(suppl_page));
     new_suppl_page->read_only = read_only;
     new_suppl_page->vaddr = (void *) (((uintptr_t) vaddr >> PGBITS) << PGBITS);
-    new_suppl_page->paddr = paddr;
+    new_suppl_page->kaddr = kaddr;
     new_suppl_page->swap_index = -1;
     if (file_name != NULL)
         memcpy(new_suppl_page->file_name, file_name, 14);
@@ -78,7 +78,7 @@ suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char *file_
 }
 // For evicting a page. If the page is dirty, write it out to a file or swap
 // slot as appropriate. Use the suppl page entry to figure out what's needed
-bool write_out_page(void *page UNUSED)
+bool write_out_page(void *kaddr UNUSED)
 {
  // These commented lines might be helpful in writing to a file
     // Write out to the file

@@ -38,7 +38,7 @@ The evicted frame may then be used to store a different page.
 
 typedef struct frame_entry
 {
-    uintptr_t frame_ptr; // Point to the physical address of the frame
+    void *kaddr; // Point to the kernel address of the frame
     struct thread *holding_thread; // The thread that's using this frame 
     void *upage;  // The user page the frame is put into
 } frame_entry;
@@ -77,20 +77,20 @@ static void evict_page(void)
 
     frame_entry *evictee = find_frame_to_evict();
     // If the page is dirty, try to save it. Panic if it can't be swapped out
-    if (! write_out_page(ptov(evictee->frame_ptr)))
+    if (! write_out_page(evictee->kaddr))
         PANIC("Couldn't evict page");
     // Tell the page directory that the page is gone
     pagedir_clear_page(evictee->holding_thread->pagedir, evictee->upage);
     // Tell palloc the page is gone
-    palloc_free_page(ptov(evictee->frame_ptr));
+    palloc_free_page(evictee->kaddr);
     // Smash the page's entry in the frame table
-    evictee->frame_ptr = 0;
+    evictee->kaddr = 0;
     evictee->holding_thread = NULL;
     evictee->upage = NULL;
 }
 
 // Returns a pointer to the physical address of a new frame
-uintptr_t get_unused_frame(struct thread *holding_thread, void *upage)
+void *get_unused_frame(struct thread *holding_thread, void *upage)
 {
     // This shouldn't actually be necessary if NUM_FRAMES is what I think
     // it should be, but it doesn't hurt to be careful
@@ -109,9 +109,9 @@ uintptr_t get_unused_frame(struct thread *holding_thread, void *upage)
 
     // Have a new page/frame, stick it into the frame table
     int i = find_available_frame_idx();
-    frame_table[i].frame_ptr = vtop(new_page);
+    frame_table[i].kaddr = (void *) new_page;
     frame_table[i].holding_thread = holding_thread;
     frame_table[i].upage = upage;
 
-    return vtop(new_page); // vtop translates kernel virtual memory to physical memory
+    return (void *) new_page; // vtop translates kernel virtual memory to physical memory
 }

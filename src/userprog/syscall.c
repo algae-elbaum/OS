@@ -279,7 +279,7 @@ static void syscall_munmap(mapid_t id)
             struct file * curr_file = filesys_open(curr_page->file_name);
             // In theory, this could fail, but since we know that such a file
             // is in the frame, we shouldn't have to worry about failures.
-            file_write(curr_file, ptov((uintptr_t)curr_page->paddr), curr_page->bytes_to_read);
+            file_write(curr_file, curr_page->kaddr, curr_page->bytes_to_read);
         }
         free(curr_page);
     }

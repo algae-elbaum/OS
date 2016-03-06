@@ -197,14 +197,14 @@ static void page_fault(struct intr_frame *f) {
     // Now get a frame, tie it to the faulting page, and fill it with the data it wants
     if(not_present)
     {
-        uintptr_t paddr = get_unused_frame(thread_current(), upage);
-        faulted_page->paddr = (void *) paddr;   
+        void *kaddr = get_unused_frame(thread_current(), upage);
+        faulted_page->kaddr = kaddr;   
         // We want to copy the memory of the physical memory into the frame table.
         // There are three cases, swap, file and 0s
         if(faulted_page->file_name[0] == '\0') // All zeros or swap
         {
             if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
-                memset(ptov(paddr), 0, PGSIZE);
+                memset(kaddr, 0, PGSIZE);
             // else
                 // TODO Need to swap in
 
@@ -219,13 +219,13 @@ static void page_fault(struct intr_frame *f) {
             // I think it has to be done this way
             struct file *f = filesys_open(faulted_page->file_name);
             file_seek(f, faulted_page->file_offset);
-            int bytes_written = file_read(f, ptov(paddr), faulted_page->bytes_to_read);
-            memset((void *) ptov(paddr) + bytes_written, 0, PGSIZE - bytes_written);
+            int bytes_written = file_read(f, kaddr, faulted_page->bytes_to_read);
+            memset(kaddr + bytes_written, 0, PGSIZE - bytes_written);
             file_close(f);
             lock_release(&filesys_lock);
         }
         // Now the frame should be filled with all the right data. Time to register it
-        pagedir_set_page(thread_current()->pagedir, upage, ptov(paddr), ! faulted_page->read_only);
+        pagedir_set_page(thread_current()->pagedir, upage, kaddr, ! faulted_page->read_only);
     }
 
 }

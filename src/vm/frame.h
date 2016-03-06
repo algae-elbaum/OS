@@ -1,3 +1,3 @@
 #include "threads/thread.h"
 
-uintptr_t get_unused_frame(struct thread *holding_thread, void *upage);
+void *get_unused_frame(struct thread *holding_thread, void *upage);
