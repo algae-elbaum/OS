@@ -69,6 +69,33 @@ static frame_entry *find_frame_to_evict(void)
     return NULL;
 }
 
+// For evicting a page. If the page is dirty, write it out to a file or swap
+// slot as appropriate. Use the suppl page entry to figure out what's needed
+static bool write_out_frame(frame_entry *frame)
+{
+
+    suppl_page *s_page = suppl_page_lookup(&frame->holding_thread->suppl_page_table, 
+                                                frame->upage);
+    // If it's a file and is not ELF stuff
+    if (s_page->file_name[0] != '\0' && s_page->elf_status == not_ELF)
+    {
+        // Write out to file
+        // These commented lines might be helpful in writing to a file
+//        struct file * curr_file = filesys_open(curr_page->file_name);
+        // In theory, this could fail, but since we know that such a file
+        // is in the frame, we shouldn't have to worry about failures.
+//        file_write(curr_file, ptov(curr_page->paddr), curr_page->bytes_to_read);
+        char *boop = "so the compiler is happy with an empty if block";
+    }
+    // Else swap it
+    else
+    {
+        char *boop = "so the compiler is happy with an empty else block";
+    }
+
+    return false;
+}
+
 // TODO make this function take an argument and then make the eviction policy
 //cChoose which who to evict rather than ask the evict policy in here
 static void evict_page(void)
@@ -77,7 +104,7 @@ static void evict_page(void)
 
     frame_entry *evictee = find_frame_to_evict();
     // If the page is dirty, try to save it. Panic if it can't be swapped out
-    if (! write_out_page(evictee->kaddr))
+    if (! write_out_frame(evictee))
         PANIC("Couldn't evict page");
     // Tell the page directory that the page is gone
     pagedir_clear_page(evictee->holding_thread->pagedir, evictee->upage);

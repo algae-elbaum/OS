@@ -60,32 +60,27 @@ suppl_page * suppl_page_lookup (struct hash *suppl_page_table, const void *vaddr
 }
 
 
-suppl_page *new_suppl_page(bool read_only, void *vaddr, void *kaddr, char *file_name, 
-                                unsigned file_offset, unsigned bytes_to_read)
+suppl_page *new_suppl_page(bool read_only, void *vaddr)
 {
     suppl_page *new_suppl_page = (suppl_page *) malloc(sizeof(suppl_page));
     new_suppl_page->read_only = read_only;
     new_suppl_page->vaddr = (void *) (((uintptr_t) vaddr >> PGBITS) << PGBITS);
-    new_suppl_page->kaddr = kaddr;
+
+    // Defaults:
     new_suppl_page->swap_index = -1;
-    if (file_name != NULL)
-        memcpy(new_suppl_page->file_name, file_name, 14);
-    else
-        new_suppl_page->file_name[0] = '\0';
-    new_suppl_page->file_offset = file_offset;
-    new_suppl_page->bytes_to_read = bytes_to_read;
+    new_suppl_page->file_name[0] = '\0';
+    new_suppl_page->file_offset = 0;
+    new_suppl_page->bytes_to_read = 0;
     return new_suppl_page;
 }
-// For evicting a page. If the page is dirty, write it out to a file or swap
-// slot as appropriate. Use the suppl page entry to figure out what's needed
-bool write_out_page(void *kaddr UNUSED)
-{
- // These commented lines might be helpful in writing to a file
-    // Write out to the file
-    //        struct file * curr_file = filesys_open(curr_page->file_name);
-            // In theory, this could fail, but since we know that such a file
-            // is in the frame, we shouldn't have to worry about failures.
-      //      file_write(curr_file, ptov(curr_page->paddr), curr_page->bytes_to_read);
 
-    return false;
+void set_suppl_page_file(suppl_page* page, char file_name[14], unsigned ofs, 
+                            unsigned bytes_to_read)
+{
+    if (file_name != NULL)
+        memcpy(page->file_name, file_name, 14);
+    else
+        page->file_name[0] = '\0';
+    page->file_offset = ofs;
+    page->bytes_to_read = bytes_to_read;
 }

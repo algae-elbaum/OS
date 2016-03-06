@@ -234,8 +234,8 @@ static mapid_t syscall_mmap(int fd, void *addr)
         //make new suppl_page table entry
         unsigned bytes_to_read = (file_size - curr_pos < PGSIZE) ? file_size - curr_pos
                                                                  : PGSIZE;
-        suppl_page * page = new_suppl_page(this_file->deny_write, addr + curr_pos, 
-                                                NULL, this_file->file_name, curr_pos, bytes_to_read);
+        suppl_page * page = new_suppl_page(this_file->deny_write, addr + curr_pos); 
+        set_suppl_page_file(page, this_file->file_name, curr_pos, bytes_to_read);
 
         list_push_back (&curr_map.pages, &page->elem);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);

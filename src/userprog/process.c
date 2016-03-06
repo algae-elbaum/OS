@@ -517,84 +517,33 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     ASSERT(ofs % PGSIZE == 0);
 
     lock_acquire(&filesys_lock);
-#if 1
     // Not using mmap because there's weirdness that needs to be set about having
     // initial segfaults get data from the file, but subsequently they gotta use
     // swap. Also there's the zero_bytes weirdness that mmap doesn't handle
-    
     unsigned file_size = file_length(file);
     ASSERT(read_bytes < file_size - ofs);
 
-    int s_read_bytes = read_bytes; // argghhhhhhh
-    int s_zero_bytes = zero_bytes;
-
-    while(s_read_bytes > 0)
+    while(read_bytes > 0 || zero_bytes > 0)
     {
         // Make new suppl_page table entry
-        unsigned bytes_to_read = (s_read_bytes < PGSIZE) ? s_read_bytes : PGSIZE;
-        suppl_page * page = new_suppl_page(! writable, upage, NULL, file->file_name, ofs, bytes_to_read);
+        unsigned page_read_bytes = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
+        size_t page_zero_bytes = PGSIZE - page_read_bytes;
+        suppl_page * page = new_suppl_page(!writable, upage);
+        if (page_read_bytes > 0)
+        {
+            set_suppl_page_file(page, file->file_name, ofs, page_read_bytes);
+            page->elf_status = nonfaulted_ELF;
+        }
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         ofs += PGSIZE;
         upage += PGSIZE;
-        s_read_bytes -= PGSIZE;
-    }
-    // And now for the zeros
-    s_read_bytes += PGSIZE; // So that s_read_bytes will be the bytes to read of the last page with file data
-    s_zero_bytes -= PGSIZE - s_read_bytes;
-    while(s_zero_bytes > 0)
-    {
-        suppl_page * page = new_suppl_page(! writable, upage, NULL, NULL, 0, 0);
-        hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
-        upage += PGSIZE;
-        s_zero_bytes -= PGSIZE;
-    }
-    
-#endif
-#if 0
-
-    file_seek(file, ofs);
-
- while (read_bytes > 0 || zero_bytes > 0) {
-        /* Calculate how to fill this page.
-           We will read PAGE_READ_BYTES bytes from FILE
-           and zero the final PAGE_ZERO_BYTES bytes. */
-        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
-        size_t page_zero_bytes = PGSIZE - page_read_bytes;
-
-        /* Get a page of memory. */
-        uint8_t *kpage = palloc_get_page(PAL_USER);
-        if (kpage == NULL)
-            return false;
-
-        /* Load this page. */
-        if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
-            palloc_free_page(kpage);
-            return false;
-        }
-        memset(kpage + page_read_bytes, 0, page_zero_bytes);
-
-        /* Add the page to the process's address space. */
-        if (!install_page(upage, kpage, writable)) {
-            palloc_free_page(kpage);
-            return false; 
-        }
-
-        /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
-        upage += PGSIZE;
     }
-
-
-#endif
-
     lock_release(&filesys_lock);
-    // TODO return false if any errors
-    return true;
+    return true; // Failure is not an option
 
 }
-
-
 
 /*! Create a minimal stack by mapping a zeroed page at the top of
     user virtual memory. */

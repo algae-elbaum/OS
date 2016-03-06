@@ -168,12 +168,7 @@ static void page_fault(struct intr_frame *f) {
         {
             // Extend the stack:
             // Create the supplemental page table entry for it
-            bool read_only = false;
-            void *paddr = NULL;
-            char *file_name = NULL;
-            unsigned file_offset = 0;
-            unsigned bytes_to_read = 0;
-            faulted_page = new_suppl_page(read_only, upage, paddr, file_name, file_offset, bytes_to_read);
+            faulted_page = new_suppl_page(false, upage);
             // Add the supplemental page to the supplemental page table
             hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
         }
@@ -201,7 +196,7 @@ static void page_fault(struct intr_frame *f) {
         faulted_page->kaddr = kaddr;   
         // We want to copy the memory of the physical memory into the frame table.
         // There are three cases, swap, file and 0s
-        if(faulted_page->file_name[0] == '\0') // All zeros or swap
+        if(faulted_page->file_name[0] == '\0' || faulted_page->elf_status == faulted_ELF) // All zeros or swap
         {
             if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
                 memset(kaddr, 0, PGSIZE);
@@ -212,6 +207,12 @@ static void page_fault(struct intr_frame *f) {
 
         else // It's part of a file, copy in the part we need
         {
+            // First, if this is ELF stuff, we need future faults to come from swap
+            // This could probably be done better to save io by conditioning on
+            // whether writing is allowed to the ELF 
+            if (faulted_page->elf_status == nonfaulted_ELF)
+                faulted_page->elf_status = faulted_ELF;
+              
             // Will have to think harder about general concurrency, but this is 
             // file stuff, so we at least need to lock the filesystem on it 
             lock_acquire(&filesys_lock);
