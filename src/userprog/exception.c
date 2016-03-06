@@ -156,7 +156,7 @@ static void page_fault(struct intr_frame *f) {
     kill(f); */
 
     // 1. Locate the page that faulted in the suppl_page_table
-    void *upage = pte_get_page((uint32_t) fault_addr);
+    void *upage = (void *) (((uintptr_t) fault_addr >> PGBITS) << PGBITS); // I could have sworn there was a nicer way of doing this
     suppl_page *faulted_page = suppl_page_lookup(&thread_current()->suppl_page_table, upage);
 
     // Either the page doesn't exist because we're not allowed to use it, or the
@@ -172,7 +172,8 @@ static void page_fault(struct intr_frame *f) {
             void *paddr = NULL;
             char *file_name = NULL;
             unsigned file_offset = 0;
-            faulted_page = new_suppl_page(read_only, upage, paddr, file_name, file_offset);
+            unsigned bytes_to_read = 0;
+            faulted_page = new_suppl_page(read_only, upage, paddr, file_name, file_offset, bytes_to_read);
             // Add the supplemental page to the supplemental page table
             hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
         }
@@ -197,12 +198,13 @@ static void page_fault(struct intr_frame *f) {
     if(not_present) 
     {
         uintptr_t paddr = get_unused_frame(thread_current(), upage);
+        faulted_page->paddr = (void *) paddr;   
         // We want to copy the memory of the physical memory into the frame table.
         // There are three cases, swap, file and 0s
         if(faulted_page->file_name == NULL) // All zeros or swap
         {
             if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
-                memset((void *) paddr, 0, PGSIZE);
+                memset(ptov(paddr), 0, PGSIZE);
             // else
                 // TODO Need to swap in
 
@@ -217,13 +219,13 @@ static void page_fault(struct intr_frame *f) {
             // I think it has to be done this way
             struct file *f = filesys_open(faulted_page->file_name);
             file_seek(f, faulted_page->file_offset);
-            int bytes_written = file_read(f, ptov((uintptr_t) faulted_page->paddr), PGSIZE);
+            int bytes_written = file_read(f, ptov(paddr), faulted_page->bytes_to_read);
             memset((void *) paddr + bytes_written, 0, PGSIZE - bytes_written);
             file_close(f);
             lock_release(&filesys_lock);
         }
         // Now the frame should be filled with all the right data. Time to register it
-        pagedir_set_page(thread_current()->pagedir, upage, (void *) paddr, ! faulted_page->read_only);
+        pagedir_set_page(thread_current()->pagedir, upage, ptov(paddr), ! faulted_page->read_only);
     }
 
 }
