@@ -62,7 +62,7 @@ struct file * filesys_open(const char *name) {
     dir_close(dir);
 
     struct file* temp = file_open(inode);
-    temp->file_name = name;
+    memcpy(temp->file_name, name, 14);
     return temp;
 }
 
