@@ -527,27 +527,30 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     unsigned file_size = file_length(file);
     ASSERT(read_bytes < file_size - ofs);
 
-    while(read_bytes > 0)
+    int s_read_bytes = read_bytes; // argghhhhhhh
+    int s_zero_bytes = zero_bytes;
+
+    while(s_read_bytes > 0)
     {
         // Make new suppl_page table entry
-        unsigned bytes_to_read = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
+        unsigned bytes_to_read = (s_read_bytes < PGSIZE) ? s_read_bytes : PGSIZE;
         suppl_page * page = new_suppl_page(! writable, upage, NULL, file->file_name, ofs, bytes_to_read);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         ofs += PGSIZE;
         upage += PGSIZE;
-        read_bytes -= PGSIZE;
+        s_read_bytes -= PGSIZE;
     }
     // And now for the zeros
-    read_bytes += PGSIZE; // So that read_bytes will be the bytes to read of the last page with file data
-    zero_bytes -= PGSIZE - read_bytes;
-    while(zero_bytes > 0)
+    s_read_bytes += PGSIZE; // So that s_read_bytes will be the bytes to read of the last page with file data
+    s_zero_bytes -= PGSIZE - s_read_bytes;
+    while(s_zero_bytes > 0)
     {
         suppl_page * page = new_suppl_page(! writable, upage, NULL, NULL, 0, 0);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         upage += PGSIZE;
-        zero_bytes -= PGSIZE;
+        s_zero_bytes -= PGSIZE;
     }
-
+    
 #endif
 #if 0
 

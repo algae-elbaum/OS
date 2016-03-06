@@ -29,16 +29,6 @@ system so that we can get concurrent reads.
 #include "threads/malloc.h"
 #include "threads/pte.h"
 
-
-/* To insert values into the page table we want
-
-hash_insert (&pages, &p->hash_elem);
-
-Since this is a hash we can assert that there are no collisions
-but if we want to check for that we need hash_find. 
-It is for that reason that we need the suppl_page_less function
-because we need an ordering on the suppl_page objects */
-
 /* Returns a hash value for page p. */
 unsigned suppl_page_hash (const struct hash_elem *p_, void *aux UNUSED)
 {
