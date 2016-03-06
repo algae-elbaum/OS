@@ -69,6 +69,8 @@ static frame_entry *find_frame_to_evict(void)
     return NULL;
 }
 
+// TODO make this function take an argument and then make the eviction policy
+//cChoose which who to evict rather than ask the evict policy in here
 static void evict_page(void)
 {
     PANIC("Not ready for evictions yet");
@@ -112,4 +114,4 @@ uintptr_t get_unused_frame(struct thread *holding_thread, void *upage)
     frame_table[i].upage = upage;
 
     return vtop(new_page); // vtop translates kernel virtual memory to physical memory
-}   
+}

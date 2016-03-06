@@ -195,7 +195,7 @@ static void page_fault(struct intr_frame *f) {
     }
 
     // Now get a frame, tie it to the faulting page, and fill it with the data it wants
-    if(not_present) 
+    if(not_present)
     {
         uintptr_t paddr = get_unused_frame(thread_current(), upage);
         faulted_page->paddr = (void *) paddr;   
