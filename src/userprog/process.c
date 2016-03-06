@@ -20,6 +20,7 @@
 #include "lib/kernel/list.h"
 #include "threads/synch.h"
 #include "vm/page.h"
+#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -548,17 +549,18 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
 /*! Create a minimal stack by mapping a zeroed page at the top of
     user virtual memory. */
 static bool setup_stack(void **esp) {
-    uint8_t *kpage;
-    bool success = false;
-
-    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
-    if (kpage != NULL) {
-        success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-        if (success)
-            *esp = PHYS_BASE - 8;
-        else
-            palloc_free_page(kpage);
-    }
+    void *upage = (void *) (((uint8_t *) PHYS_BASE) - PGSIZE);
+    suppl_page *faulted_page = new_suppl_page(false, upage);
+    hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
+    void *kpage = get_unused_frame(thread_current(), upage);
+    faulted_page->kaddr = kpage; 
+    memset(kpage, 0, PGSIZE);
+    
+    bool success = install_page(upage, kpage, true);
+    if (success)
+        *esp = PHYS_BASE;
+    else
+        palloc_free_page(kpage);
     return success;
 }
 

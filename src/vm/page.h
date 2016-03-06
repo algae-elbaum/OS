@@ -21,7 +21,7 @@ typedef struct suppl_page
    unsigned file_offset;
    unsigned bytes_to_read;
    struct hash_elem hash_elem; 
-// suppl_pages need to be part of a hash table so that we can get things out
+   // suppl_pages need to be part of a hash table so that we can get things out
    struct list_elem elem; // Pages are part of maps and we need to hold onto
                           // which ones belong to which maps.  
 } suppl_page;
