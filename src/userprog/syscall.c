@@ -215,6 +215,7 @@ static int syscall_wait(int pid)
 
 static mapid_t syscall_mmap(int fd, void *addr)
 {
+    ASSERT(pg_ofs(addr) == 0);
     struct file *this_file = thread_current()->open_files[fd];
     int file_size = file_length(this_file);
     int curr_pos = 0;

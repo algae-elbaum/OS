@@ -27,7 +27,7 @@ system so that we can get concurrent reads.
 #include <debug.h>
 #include "page.h"
 #include "threads/malloc.h"
-
+#include "threads/pte.h"
 
 
 /* To insert values into the page table we want
@@ -74,7 +74,7 @@ suppl_page *new_suppl_page(bool read_only, void *vaddr, void *paddr, char *file_
 {
     suppl_page *new_suppl_page = (suppl_page *) malloc(sizeof(suppl_page));
     new_suppl_page->read_only = read_only;
-    new_suppl_page->vaddr = vaddr;
+    new_suppl_page->vaddr = pte_get_page((uint32_t) vaddr);
     new_suppl_page->paddr = paddr;
     new_suppl_page->swap_index = -1;
     new_suppl_page->file_name = file_name; // If we want to use the anonymous file, then we can call it NULL

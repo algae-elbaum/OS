@@ -7,7 +7,7 @@ typedef struct suppl_page
    /* We have some extra information that we need to keep track of for 
       each page that we use. */
    bool read_only;
-   const void *vaddr; //virtual address
+   const void *vaddr; // virtual address of the page
    const void *paddr;
    int swap_index; // Must be initialized to -1 when a new suppl_page is made
    char *file_name; // If we want to use the anonymous file, then we can call it NULL

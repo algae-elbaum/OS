@@ -529,9 +529,8 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     while(curr_pos < file_size)
     {
         // Make new suppl_page table entry
-        // Not read only becuase we definitely need to be able to modify .bss stuff
-        // Which is a little awkward since the rest should be read only
-        suppl_page * page = new_suppl_page(false, upage + curr_pos, NULL, file->file_name, curr_pos);
+        // Writable seems like the value we should use for not read only... I think
+        suppl_page * page = new_suppl_page(! writable, upage + curr_pos, NULL, file->file_name, curr_pos);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
         curr_pos += PGSIZE;
     }
