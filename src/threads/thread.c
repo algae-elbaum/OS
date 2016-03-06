@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #include "vm/page.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -254,6 +255,11 @@ tid_t thread_tid(void) {
     return thread_current()->tid;
 }
 
+static void suppl_page_destructor(struct hash_elem *e, void *aux UNUSED)
+{
+    free(hash_entry(e, struct suppl_page, hash_elem));
+}
+
 /*! Deschedules the current thread and destroys it.  Never
     returns to the caller. */
 void thread_exit(void) {
@@ -262,6 +268,10 @@ void thread_exit(void) {
 #ifdef USERPROG
     process_exit();
     struct thread * curr = thread_current();
+
+    // Free up suppl_swap_table
+    hash_destroy(&curr->suppl_page_table, suppl_page_destructor);
+
     // After cleaning things up we need to deal with implementing
     // stuff for WAIT and EXIT
     // First check if the parent is still alive
