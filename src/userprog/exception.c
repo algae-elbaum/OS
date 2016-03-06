@@ -220,7 +220,7 @@ static void page_fault(struct intr_frame *f) {
             struct file *f = filesys_open(faulted_page->file_name);
             file_seek(f, faulted_page->file_offset);
             int bytes_written = file_read(f, ptov(paddr), faulted_page->bytes_to_read);
-            memset((void *) paddr + bytes_written, 0, PGSIZE - bytes_written);
+            memset((void *) ptov(paddr) + bytes_written, 0, PGSIZE - bytes_written);
             file_close(f);
             lock_release(&filesys_lock);
         }
