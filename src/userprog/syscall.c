@@ -151,8 +151,8 @@ static int syscall_filesize(int fd)
 {
     if (check_fd(fd))
         return file_length(thread_current()->open_files[fd]); 
-
-    thread_exit(); // File doesn't exist. Let's destroy this process
+    syscall_exit(-1); // File doesn't exist. Let's destroy this process
+    return -1; // Keep the compiler happy
 }
 
 static int syscall_read(int fd, void *buffer, unsigned size)
@@ -167,7 +167,8 @@ static int syscall_read(int fd, void *buffer, unsigned size)
     if (check_fd(fd))
         return file_read(thread_current()->open_files[fd], buffer, size);
 
-    thread_exit(); // File doesn't exist. Let's destroy this process
+    syscall_exit(-1); // File doesn't exist. Let's destroy this process
+    return -1; // Keep the compiler happy 
 }
 
 static int syscall_write(int fd, const void *buffer, unsigned size)
@@ -180,7 +181,8 @@ static int syscall_write(int fd, const void *buffer, unsigned size)
     if (check_fd(fd))
         return file_write(thread_current()->open_files[fd], buffer, size);
 
-    thread_exit(); // File doesn't exist. Let's destroy this process
+    syscall_exit(-1); // File doesn't exist. Let's destroy this process
+    return -1; // Keep the compiler happy
 }
 
 static void syscall_seek(int fd, unsigned pos)
@@ -188,7 +190,7 @@ static void syscall_seek(int fd, unsigned pos)
     if (check_fd(fd))
         file_seek(thread_current()->open_files[fd], pos); 
     else
-        thread_exit(); // File doesn't exist. Let's destroy this process
+        syscall_exit(-1); // File doesn't exist. Let's destroy this process
 }
 
 static unsigned syscall_tell(int fd)
@@ -196,7 +198,8 @@ static unsigned syscall_tell(int fd)
     if (check_fd(fd))
         return file_tell(thread_current()->open_files[fd]); 
 
-    thread_exit(); // File doesn't exist. Let's destroy this process
+    syscall_exit(-1); // File doesn't exist. Let's destroy this process
+    return -1; // Keep the compiler happy
 }
 
 static void syscall_close(int fd)
@@ -204,7 +207,7 @@ static void syscall_close(int fd)
     if (check_fd(fd))
         file_close(thread_current()->open_files[fd]); 
     else
-        thread_exit(); // File doesn't exist. Let's destroy this process
+        syscall_exit(-1); // File doesn't exist. Let's destroy this process
 }
 
 
@@ -316,53 +319,24 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             syscall_exit(*arg0);
             break;
         case  SYS_EXEC:                   /*!< Start another process. */
-            if(ptr_is_valid(*(char **) arg0))
-            {
-                syscall_exec(*(char **) arg0);
-            }
-            else
-            {
-                syscall_exit(-1);
-            }
+            syscall_exec((char *) ptr_is_valid((char *) *arg0));
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
             // process wait
             syscall_wait((int) *arg0);
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
-            if(ptr_is_valid(*(char **) arg0))
-            {
-                syscall_create(*(char **) arg0, *arg1);
-            }
-            else
-            {
-                syscall_exit(-1);
-            }
+            syscall_create((char *) (ptr_is_valid((char *) *arg0)), *arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
             lock_acquire(&filesys_lock);
-            if(ptr_is_valid(*(char **) arg0))
-            {
-                syscall_remove(*(char **) arg0);
-            }
-            else
-            {
-                syscall_exit(-1);
-            }
+            syscall_remove((char *) ptr_is_valid((char *) *arg0));
             lock_release(&filesys_lock);
             break;
         case  SYS_OPEN:                   /*!< Open a file. */
             lock_acquire(&filesys_lock);
-            if(ptr_is_valid(*(char **) arg0))
-            {
-                syscall_open(*(char **) arg0);
-            }
-            else
-            {
-                syscall_exit(-1);
-            }
-
+            syscall_open((char *) ptr_is_valid((char *) *arg0));
             lock_release(&filesys_lock);
             break;
         case  SYS_FILESIZE:               /*!< Obtain a file's size. */
@@ -372,26 +346,18 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             break;
         case  SYS_READ:                   /*!< Read from a file. */
             lock_acquire(&filesys_lock);
-            if(ptr_is_valid(*(void **) arg1))
-            {
-                f->eax = syscall_read(*arg0, *(void **)arg1, *arg2);
-            }
-            else
-            {
-                syscall_exit(-1);
-            }
+            f->eax = syscall_read(*arg0, ptr_is_valid((void *) *arg1), *arg2);
             lock_release(&filesys_lock);
             break;
         case  SYS_WRITE:                  /*!< Write to a file. */
-            lock_acquire(&filesys_lock);
-            if(ptr_is_valid(*(void **) arg1))
-            {
-                f->eax = syscall_write(*arg0,* (void **)arg1, *arg2);
-            }
-            else
-            {
+            // while we have access to the vaddr, check it it's read_only
+            ptr_is_valid(*(void **) arg1); // First make sure the address is real
+            struct thread *curr = thread_current();
+            suppl_page *pg = suppl_page_lookup(&curr->suppl_page_table, (void *) *arg1);
+            if (pg != NULL && pg->read_only) // NULL is possible because stack extensions are legal
                 syscall_exit(-1);
-            }
+            lock_acquire(&filesys_lock);
+            f->eax = syscall_write(*arg0, ptr_is_valid((void *) *arg1), *arg2);
             lock_release(&filesys_lock);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
@@ -413,14 +379,7 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
 
         case  SYS_MMAP:                   /*!< Map a file into memory. */
             lock_acquire(&filesys_lock);
-            if(ptr_is_valid(*(void **) arg1))
-            {
-                f->eax = syscall_mmap(*arg0, *(void **) arg1);
-            }
-            else
-            {
-                syscall_exit(-1);
-            }
+            f->eax = syscall_mmap(*arg0, ptr_is_valid((void *) *arg1));
             lock_release(&filesys_lock);
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
