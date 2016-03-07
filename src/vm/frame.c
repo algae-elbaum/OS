@@ -110,11 +110,9 @@ static bool write_out_frame(frame_entry *frame)
 
 // TODO make this function take an argument and then make the eviction policy
 //cChoose which who to evict rather than ask the evict policy in here
-static void evict_page(void)
+static void evict_frame(frame_entry *evictee)
 {
     PANIC("Not ready for evictions yet");
-
-    frame_entry *evictee = find_frame_to_evict();
     // If the page is dirty, try to save it. Panic if it can't be swapped out
     if (! write_out_frame(evictee))
         PANIC("Couldn't evict page");
@@ -128,6 +126,17 @@ static void evict_page(void)
     evictee->upage = NULL;
 }
 
+void evict_thread_frames(struct thread *t)
+{
+    int i;
+    for (i = 0; i < NUM_FRAMES; i++)
+    {
+        //TODO uncomment when eviction works
+        //if (frame_table[i].holding_thread == t)
+        //    evict_frame(&frame_table[i]);
+    }
+}
+
 // Returns a pointer to the physical address of a new frame
 void *get_unused_frame(struct thread *holding_thread, void *upage)
 {
@@ -135,12 +144,12 @@ void *get_unused_frame(struct thread *holding_thread, void *upage)
     // it should be, but it doesn't hurt to be careful
     if (find_available_frame_idx() == -1)
     {
-        evict_page();
+        evict_frame(find_frame_to_evict());
     }
     void *new_page = palloc_get_page(PAL_USER);
     if (new_page == NULL) // No pages available, gotta evict
     {
-        evict_page();
+        evict_frame(find_frame_to_evict());
         new_page = palloc_get_page(PAL_USER);
         if (new_page == NULL) // If it's still mad for some reason even after evicting
             PANIC("Couldn't get a new frame");

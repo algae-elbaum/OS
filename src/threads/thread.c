@@ -270,6 +270,7 @@ void thread_exit(void) {
     struct thread * curr = thread_current();
 
     // Free up suppl_swap_table
+    evict_thread_frames(thread_current());
     hash_destroy(&curr->suppl_page_table, suppl_page_destructor);
 
     // After cleaning things up we need to deal with implementing

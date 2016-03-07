@@ -1,6 +1,7 @@
 #include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
+#include <string.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/synch.h"
@@ -9,8 +10,6 @@
 #include "userprog/process.h"
 #include "lib/user/syscall.h"
 #include "threads/malloc.h"
-
-#define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
 #include "devices/input.h"
 //#include "threads/pte.h"
@@ -21,17 +20,26 @@ static void syscall_handler(struct intr_frame *);
 
 static void syscall_exit(int status);
 
-static void * ptr_is_valid(const void *ptr);
+static void * check_and_convert_ptr(const void *ptr);
 
 static bool is_white_space(char input)
 {
    return (input == '\0' || input == '\r' || input == '\n');
 }
 
+static bool is_valid_filename(const char *file)
+{
+    return file != NULL
+        && file[0] != '\0'
+        && strlen(file) < 15
+        && strlen(file) > 0
+        && !is_white_space(file[0]);
+}
+
 // check whether a passed in pointer is valid, return correct address
 // currently doing it the slower way, will attempt to implemenent 2nd way
 // if time remains
-static void * ptr_is_valid(const void *ptr)
+static void * check_and_convert_ptr(const void *ptr)
 {   // check whether the ptr address is valid and within user virtual memory   
     // page directory is most significant 10 digits of vaddr
     // mimicking pd_no. PDSHIFT = (PTSHIFT + PTBITS) = PGBITS + 10 = 22
@@ -69,9 +77,9 @@ static void syscall_exit(int status)
 }
 static void syscall_exec(char * name)
 {
-    if (ptr_is_valid((void*) name) != NULL)
+    if (is_valid_filename(name))
     {
-        process_execute((char*)ptr_is_valid((void*) name));
+        process_execute(name);
     }
     else
     {
@@ -81,24 +89,22 @@ static void syscall_exec(char * name)
 static bool syscall_create(const char * file, unsigned size)
 {
     //maybe we need something else here?
-    if (ptr_is_valid((void*) file) != NULL)
+    if (is_valid_filename(file))
     {
-        return filesys_create((char*)ptr_is_valid((void*) file), size);
+        return filesys_create(file, size);
     }
-    else
-    {
+    // Special cases
+    if (file == NULL || file[0] == '\0')
         syscall_exit(-1);
-    }
-    return 0;
+    return false;
 }
 
 static bool syscall_remove(const char *file)
 {
     // gotta do some other check maybe???
-    char * f = (char *) ptr_is_valid((void*) file);
-    if (! is_white_space(*f))
+    if (is_valid_filename(file))
     {
-        return filesys_remove(f);
+        return filesys_remove(file);
     }
     else
     {
@@ -126,11 +132,10 @@ static bool check_fd(int fd)
 
 static int syscall_open(const char *file)
 {
-    char * f = (char *) ptr_is_valid((void*) file);
-    if (! is_white_space(*f))
+    if (is_valid_filename(file))
     {
         int fd = find_available_fd();
-        thread_current()->open_files[fd] = filesys_open(f);
+        thread_current()->open_files[fd] = filesys_open(file);
         if (thread_current()->open_files[fd] == NULL)
         {
             return -1;
@@ -139,11 +144,11 @@ static int syscall_open(const char *file)
 
         return fd;
     }
-    else
-    {
-        syscall_exit(-1);
-    }
-    return 0;
+    // Seemingly arbitrary different ways of dealing with different bad input
+    if (file != NULL && file[0] == '\0')
+        return -1;
+    syscall_exit(-1);
+    return -1;
 }
 
 
@@ -289,21 +294,26 @@ static void syscall_munmap(mapid_t id)
 }
 // TODO figure out list_init
 
-static void syscall_handler(struct intr_frame *f UNUSED) {
+static void syscall_handler(struct intr_frame *f) {
 
     long intr_num;
     long *arg0;
     long *arg1;
     long *arg2;
 
-    if (ptr_is_valid((void*) f->esp) != NULL)
+    if (check_and_convert_ptr((void*) f->esp) != NULL)
     {
-        intr_num = *((long *) f->esp) ;
+        intr_num = *((long *) f->esp);
         arg0 = (((long *) f->esp) + 1); 
         arg1 = (((long *) f->esp) + 2); 
         arg2 = (((long *) f->esp) + 3); 
     }
     else
+    {
+        syscall_exit(-1);
+    }
+    // The tests imply this is necessary even when none of the arguments are needed
+    if (!is_user_vaddr(arg0))
     {
         syscall_exit(-1);
     }
@@ -319,24 +329,25 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             syscall_exit(*arg0);
             break;
         case  SYS_EXEC:                   /*!< Start another process. */
-            syscall_exec((char *) ptr_is_valid((char *) *arg0));
+            syscall_exec((char *) check_and_convert_ptr((char *) *arg0));
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
             // process wait
             syscall_wait((int) *arg0);
+            break;
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
-            syscall_create((char *) (ptr_is_valid((char *) *arg0)), *arg1);
+            f->eax = syscall_create((char *) (check_and_convert_ptr((char *) *arg0)), *arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
             lock_acquire(&filesys_lock);
-            syscall_remove((char *) ptr_is_valid((char *) *arg0));
+            f->eax = syscall_remove((char *) check_and_convert_ptr((char *) *arg0));
             lock_release(&filesys_lock);
             break;
         case  SYS_OPEN:                   /*!< Open a file. */
             lock_acquire(&filesys_lock);
-            syscall_open((char *) ptr_is_valid((char *) *arg0));
+            f->eax = syscall_open((char *) check_and_convert_ptr((char *) *arg0));
             lock_release(&filesys_lock);
             break;
         case  SYS_FILESIZE:               /*!< Obtain a file's size. */
@@ -345,19 +356,19 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_release(&filesys_lock);
             break;
         case  SYS_READ:                   /*!< Read from a file. */
-            lock_acquire(&filesys_lock);
-            f->eax = syscall_read(*arg0, ptr_is_valid((void *) *arg1), *arg2);
-            lock_release(&filesys_lock);
-            break;
-        case  SYS_WRITE:                  /*!< Write to a file. */
             // while we have access to the vaddr, check it it's read_only
-            ptr_is_valid(*(void **) arg1); // First make sure the address is real
+            check_and_convert_ptr((void *) *arg1); // First make sure the address is real
             struct thread *curr = thread_current();
             suppl_page *pg = suppl_page_lookup(&curr->suppl_page_table, (void *) *arg1);
             if (pg != NULL && pg->read_only) // NULL is possible because stack extensions are legal
                 syscall_exit(-1);
             lock_acquire(&filesys_lock);
-            f->eax = syscall_write(*arg0, ptr_is_valid((void *) *arg1), *arg2);
+            f->eax = syscall_read(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
+            lock_release(&filesys_lock);
+            break;
+        case  SYS_WRITE:                  /*!< Write to a file. */
+            lock_acquire(&filesys_lock);
+            f->eax = syscall_write(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
             lock_release(&filesys_lock);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
@@ -371,15 +382,13 @@ static void syscall_handler(struct intr_frame *f UNUSED) {
             lock_release(&filesys_lock);
             break;
         case  SYS_CLOSE:                  /*!< Close a file. */
-
             lock_acquire(&filesys_lock);
             syscall_close(*arg0);
             lock_release(&filesys_lock);
             break;
-
         case  SYS_MMAP:                   /*!< Map a file into memory. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_mmap(*arg0, ptr_is_valid((void *) *arg1));
+            f->eax = syscall_mmap(*arg0, check_and_convert_ptr((void *) *arg1));
             lock_release(&filesys_lock);
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
