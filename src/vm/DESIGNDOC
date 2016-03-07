@@ -82,6 +82,10 @@ the get pagefaulted at (initial setup, mmap)
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
 
+If a user process talks to a page, then it dirties the address in user and the kernel
+address. If the kernel dirties something it only dirties the kernel address.
+This might cause problens.
+
 ---- SYNCHRONIZATION ----
 
 >> A4: When two user processes both need a new frame at the same time,
