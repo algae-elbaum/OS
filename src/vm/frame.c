@@ -44,10 +44,17 @@ typedef struct frame_entry
     void *kaddr; // Point to the kernel address of the frame
     struct thread *holding_thread; // The thread that's using this frame 
     void *upage;  // The user page the frame is put into
+    struct list_elem elem; // We want to use the clock algorithm, so we need a queue of frames
 } frame_entry;
 
 // IAMA frame table.
 static frame_entry frame_table[NUM_FRAMES] = {{0}};
+struct list frame_clock_queue;
+// Have to set up the list of frames somwhere.
+void frames_init(void)
+{
+    list_init(&frame_clock_queue);
+}
 
 static int find_available_frame_idx(void)
 {
@@ -61,13 +68,34 @@ static int find_available_frame_idx(void)
 }
 
 // For now, this just finds the first frame. In the future it should be smarter
+// We want to use the clock algorithm by creating a queue and kickout the first
+// dirty page.
 static frame_entry *find_frame_to_evict(void)
 {
-    int i;
-    for (i = 0; i < NUM_FRAMES; i++)
+    //int i;
+    //for (i = 0; i < NUM_FRAMES; i++)
+    //{
+    //   if (frame_table[i].holding_thread != NULL)
+    //        return &frame_table[i];
+    //}
+    //return NULL;
+    struct list_elem * e;
+    for (e = list_begin (&frame_clock_queue); e != list_end (&frame_clock_queue); e = list_remove (e))
     {
-        if (frame_table[i].holding_thread != NULL)
-            return &frame_table[i];
+      // Loop over all of the frames that exist and ask them if they are dirty.
+      struct frame_entry * curr_frame = list_entry(e, frame_entry, elem);
+      if(pagedir_is_dirty(curr_frame->holding_thread->pagedir, curr_frame->upage))
+      {
+          // If you are a dirty dirty page, thne we need to clean you up
+          pagedir_set_dirty(curr_frame->holding_thread->pagedir, curr_frame->upage, true);
+          // Then it gets punished by being sent to the back of the line
+          list_push_back(&frame_clock_queue, e);
+      }
+      else
+      {
+          // If you are clean, then we can be done and return you
+          return curr_frame;
+      }
     }
     return NULL;
 }

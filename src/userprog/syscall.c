@@ -398,7 +398,7 @@ static void syscall_handler(struct intr_frame *f) {
             lock_release(&filesys_lock);
             break;
         case  SYS_MMAP:                   /*!< Map a file into memory. */
-            f->eax = syscall_mmap(*arg0, ptr_is_valid((void *) *arg1));
+            f->eax = syscall_mmap(*arg0, check_and_convert_ptr((void *) *arg1));
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
             syscall_munmap(*arg0);
