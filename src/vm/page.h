@@ -8,6 +8,8 @@ enum ELF_type {
   faulted_ELF
 };
 
+extern struct lock suppl_lock;
+
 typedef struct suppl_page
 {
    /* We have some extra information that we need to keep track of for 

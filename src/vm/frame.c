@@ -71,6 +71,9 @@ static frame_entry *find_frame_to_evict(void)
 
 // For evicting a page. If the page is dirty, write it out to a file or swap
 // slot as appropriate. Use the suppl page entry to figure out what's needed
+// TODO figure out how to put the locks in. Need to lock suppl_page table
+// using suppl_lock. I can't do it myself because there isn't enough function
+// here to know where to put in those locks.
 static bool write_out_frame(frame_entry *frame)
 {
 

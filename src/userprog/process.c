@@ -109,7 +109,9 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
     // Doing this here feels really really bad. It can't happen in init_thread
     // without issues because the hash_init needs the current thread to be running
     // and that isn't always the case in init_thread
+    lock_acquire(&thread_current()->suppl_lock);
     hash_init (&thread_current()->suppl_page_table, suppl_page_hash, suppl_page_less, NULL);
+    lock_release(&thread_current()->suppl_lock);
 
     // Start tokenizing the command to get the file_name
     char *token, *save_ptr;
@@ -517,6 +519,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     ASSERT(pg_ofs(upage) == 0);
     ASSERT(ofs % PGSIZE == 0);
 
+    lock_acquire(&thread_current()->suppl_lock);
     lock_acquire(&filesys_lock);
     // Not using mmap because there's weirdness that needs to be set about having
     // initial segfaults get data from the file, but subsequently they gotta use
@@ -542,6 +545,7 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
         zero_bytes -= page_zero_bytes;
     }
     lock_release(&filesys_lock);
+    lock_release(&thread_current()->suppl_lock);
     return true; // Failure is not an option
 
 }
@@ -550,12 +554,14 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     user virtual memory. */
 static bool setup_stack(void **esp) {
     void *upage = (void *) (((uint8_t *) PHYS_BASE) - PGSIZE);
+    lock_acquire(&thread_current()->suppl_lock);
     suppl_page *faulted_page = new_suppl_page(false, upage);
     hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
+    lock_release(&thread_current()->suppl_lock);
     void *kpage = get_unused_frame(thread_current(), upage);
-    faulted_page->kaddr = kpage; 
+    faulted_page->kaddr = kpage;
     memset(kpage, 0, PGSIZE);
-    
+
     bool success = install_page(upage, kpage, true);
     if (success)
         *esp = PHYS_BASE;

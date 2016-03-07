@@ -244,11 +244,13 @@ static mapid_t syscall_mmap(int fd, void *addr)
         //make new suppl_page table entry
         unsigned bytes_to_read = (file_size - curr_pos < PGSIZE) ? file_size - curr_pos
                                                                  : PGSIZE;
+        lock_acquire(&thread_current()->suppl_lock);
         suppl_page * page = new_suppl_page(this_file->deny_write, addr + curr_pos); 
         set_suppl_page_file(page, this_file->file_name, curr_pos, bytes_to_read);
 
         list_push_back (&curr_map.pages, &page->elem);
         hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
+        lock_release(&thread_current()->suppl_lock);
         curr_pos += PGSIZE;
     }
 
@@ -273,6 +275,10 @@ static void syscall_munmap(mapid_t id)
     // So we can clean up all of the attached pages
     // We want to remove from the suppl_page table
     // If it is paged in, we need to write it out to the file
+
+    // We need a lock on the suppl_page table to be sure that the elements
+    // aren't changed while we remove some of them.
+    lock_acquire(&thread_current()->suppl_lock);
     struct map * curr_map = list_entry(e, struct map, elem);
     struct list_elem * e2 = list_head(&curr_map->pages);
     while ((e2 = list_next (e2)) != list_end (&curr_map->pages))
@@ -286,13 +292,16 @@ static void syscall_munmap(mapid_t id)
         {
         // TODO replace this with evicting the page using evict_page from vm/frame.c once it is updated
             // Write out to the file
+            lock_acquire(&filesys_lock);
             struct file * curr_file = filesys_open(curr_page->file_name);
             // In theory, this could fail, but since we know that such a file
             // is in the frame, we shouldn't have to worry about failures.
             file_write(curr_file, curr_page->kaddr, curr_page->bytes_to_read);
+            lock_release(&filesys_lock);
         }
         free(curr_page);
     }
+    lock_release(&thread_current()->suppl_lock);
 }
 // TODO figure out list_init
 
@@ -360,9 +369,11 @@ static void syscall_handler(struct intr_frame *f) {
             // while we have access to the vaddr, check it it's read_only
             ptr_is_valid((void *) *arg1); // First make sure the address is real
             struct thread *curr = thread_current();
+            lock_acquire(&thread_current()->suppl_lock);
             suppl_page *pg = suppl_page_lookup(&curr->suppl_page_table, (void *) *arg1);
             if (pg != NULL && pg->read_only) // NULL is possible because stack extensions are legal
                 syscall_exit(-1);
+            lock_release(&thread_current()->suppl_lock);
             lock_acquire(&filesys_lock);
             f->eax = syscall_read(*arg0, ptr_is_valid((void *) *arg1), *arg2);
             lock_release(&filesys_lock);
@@ -388,14 +399,10 @@ static void syscall_handler(struct intr_frame *f) {
             lock_release(&filesys_lock);
             break;
         case  SYS_MMAP:                   /*!< Map a file into memory. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_mmap(*arg0, ptr_is_valid((void *) *arg1));
-            lock_release(&filesys_lock);
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
-            lock_acquire(&filesys_lock);
             syscall_munmap(*arg0);
-            lock_release(&filesys_lock);
             break;
 
         // case  SYS_CHDIR:                  /*!< Change the current directory. */
