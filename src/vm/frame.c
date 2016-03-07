@@ -34,6 +34,7 @@ The evicted frame may then be used to store a different page.
 #include "filesys/filesys.h"
 #include "filesys/file.h"
 #include "devices/block.h"
+#include "limits.h"
 
 // This is ripped from the calculation in the initialization in palloc.c 
 // (1024 comes from hacky gdb experimentation to figure out init_ram_pages)
@@ -46,6 +47,13 @@ typedef struct frame_entry
     void *upage;  // The user page the frame is put into
     struct list_elem elem; // We want to use the clock algorithm, so we need a queue of frames
 } frame_entry;
+
+// for swapping stuff bback in, but no time to implement
+typedef struct filled_slot
+{
+    int sector_idx; // first sector index filled
+    struct suppl_page s_page; // the page it's filled by
+} filled_slot;
 
 // IAMA frame table.
 static frame_entry frame_table[NUM_FRAMES] = {{0}};
@@ -110,6 +118,10 @@ static bool write_out_frame(frame_entry *frame)
 
     suppl_page *s_page = suppl_page_lookup(&frame->holding_thread->suppl_page_table, 
                                                 frame->upage);
+    
+    struct block *b = block_get_role(BLOCK_SWAP);
+    bool is_free_slot[INT_MAX] = {false};
+
     if (pagedir_is_dirty(frame->holding_thread->pagedir, s_page))
     {
         // If it's a file and is not ELF stuff
@@ -128,10 +140,17 @@ static bool write_out_frame(frame_entry *frame)
         // Else swap it
         else
         {
-            int i;
-            for (i = 0; i < BLOCK_SECTOR_SIZE; i++)
+            int i, j;
+            for (i = 0; i < b->size/PGSIZE; i = i + PGSIZE)
             {
-                block_write(block_get_role(BLOCK_ROLE_CNT), i*BLOCK_SECTOR_SIZE, s_page);
+                if (is_free_slot[i])
+                {
+                    for (j = 0; j < PGSIZE; j = j + BLOCK_SECTOR_SIZE)
+                    {
+                        block_write(b, (i*PGSIZE) + j, s_page->kaddr + (j * BLOCK_SECTOR_SIZE));
+                    }
+                    is_free_slot[i] = true;
+                }
             }
         }
     }
