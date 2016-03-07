@@ -83,4 +83,5 @@ void set_suppl_page_file(suppl_page* page, char file_name[14], unsigned ofs,
         page->file_name[0] = '\0';
     page->file_offset = ofs;
     page->bytes_to_read = bytes_to_read;
+
 }

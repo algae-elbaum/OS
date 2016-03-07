@@ -31,6 +31,9 @@ The evicted frame may then be used to store a different page.
 #include "userprog/pagedir.h"
 #include "page.h"
 #include "frame.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
+#include "devices/block.h"
 
 // This is ripped from the calculation in the initialization in palloc.c 
 // (1024 comes from hacky gdb experimentation to figure out init_ram_pages)
@@ -76,23 +79,32 @@ static bool write_out_frame(frame_entry *frame)
 
     suppl_page *s_page = suppl_page_lookup(&frame->holding_thread->suppl_page_table, 
                                                 frame->upage);
-    // If it's a file and is not ELF stuff
-    if (s_page->file_name[0] != '\0' && s_page->elf_status == not_ELF)
+    if (pagedir_is_dirty(frame->holding_thread->pagedir, s_page))
     {
-        // Write out to file
-        // These commented lines might be helpful in writing to a file
-//        struct file * curr_file = filesys_open(curr_page->file_name);
-        // In theory, this could fail, but since we know that such a file
-        // is in the frame, we shouldn't have to worry about failures.
-//        file_write(curr_file, ptov(curr_page->paddr), curr_page->bytes_to_read);
-        char *boop = "so the compiler is happy with an empty if block";
-    }
-    // Else swap it
-    else
-    {
-        char *boop = "so the compiler is happy with an empty else block";
-    }
+        // If it's a file and is not ELF stuff
+        if (s_page->file_name != NULL && s_page->file_name[0] != '\0' && s_page->elf_status == not_ELF)
+        {
+            // Write out to file
+            // These commented lines might be helpful in writing to a file
+    //        struct file * curr_file = filesys_open(curr_page->file_name);
+            // In theory, this could fail, but since we know that such a file
+            // is in the frame, we shouldn't have to worry about failures.
+    //        file_write(curr_file, ptov(curr_page->paddr), curr_page->bytes_to_read);
 
+            struct file * curr_file = filesys_open(s_page->file_name);
+            file_write(curr_file, ptov((uintptr_t) s_page->kaddr), s_page->bytes_to_read);
+        }
+        // Else swap it
+        else
+        {
+            int i;
+            for (i = 0; i < BLOCK_SECTOR_SIZE; i++)
+            {
+                block_write(block_get_role(BLOCK_ROLE_CNT), i*BLOCK_SECTOR_SIZE, s_page);
+            }
+        }
+    }
+    
     return false;
 }
 
