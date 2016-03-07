@@ -40,14 +40,14 @@ which parts.
    Make sure that each member's total time is listed.
 
 
-Kyle 15
+Kyle ~25
 Henry 23
 Bianca lord only knows
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
-Kyle: Supplemental Page Table. pair programming with henry on frame table
+Kyle: Supplemental Page Table. pair programming with henry on frame table, concurrency, clock_algorithm on eviciton, mmap, munmap syscalls
 Henry: Frame table, eviction minus the swapping out/writing to files, stack
        extension, reading in from mmapped pages on pagefault, page reclamation
 Bianca: writing out frames/pages to file or to swap. Helped with supplemental page
@@ -86,6 +86,8 @@ the get pagefaulted at (initial setup, mmap)
 >> A4: When two user processes both need a new frame at the same time,
 >> how are races avoided?
 
+We should do this in a single lock. Uhh, we didn't actually implement this.
+
 ---- RATIONALE ----
 
 >> A5: Why did you choose the data structure(s) that you did for
@@ -103,12 +105,34 @@ virtual mem to physical mem.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+typedef struct frame_entry
+{
+    void *kaddr; // Point to the kernel address of the frame
+    struct thread *holding_thread; // The thread that's using this frame 
+    void *upage;  // The user page the frame is put into
+    struct list_elem elem; // We want to use the clock algorithm, so we need a queue of frames
+} frame_entry;
+
+To be the entries of the fram_table queue
+
+// IAMA frame table.
+static frame_entry frame_table[NUM_FRAMES] = {{0}};
+
+We need an array of the frames to do framey things with it.
+
+struct list frame_clock_queue;
+
+This is the queue to do the eviction policy.
+
+
 ---- ALGORITHMS ----
 
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
-Right now it just picks the first available frame from the frame table.
-Really bad, but we need to focus on getting more things functioning at all
+
+We have a queue of all of the frames. And we choose the first frame that
+is clean. A frame that is dirty is sent ot the back of the queue and set to clean
+This means that we will eventually find a frame to evict.
 
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
@@ -136,21 +160,47 @@ If it's a a valid user addr and is above esp-64 then we extend the stack.
 >> textbook for an explanation of the necessary conditions for
 >> deadlock.)
 
+We did not finish concurrency. We have locks for the filesys and for
+the suppl_page table. We should have another one for the frame table, but
+didn't finish setting it up.
+We make sure to always nest the locks. If we have code that will use 
+both files and the suppl_page table, we made sure that the file accesses always are
+nested inside. This prevents deadlock because no process can be waiting for
+resource A while holding B deadlocking with a process that has B and wants A because
+that state is impossible. No one can hold B without already having A, or not wanting A.
+
+We should make more complex structures to figure out how to allow simaltaneous reads
+and to allow reads on some parts while writing to others. We recognize that this
+exists, but did not have time to implement it.
+
 >> B6: A page fault in process P can cause another process Q's frame
 >> to be evicted.  How do you ensure that Q cannot access or modify
 >> the page during the eviction process?  How do you avoid a race
 >> between P evicting Q's frame and Q faulting the page back in?
+
+We should use something smart to prevent the latter possiblity.
+We were going to make a global frame table lock, or lock each element individually. The 
+latter doens't solve this problem and the former would be very. Slow.
+However, we only made a lock for the suppl_page table and didn't 
+have time to make one for the frame_table.
 
 >> B7: Suppose a page fault in process P causes a page to be read from
 >> the file system or swap.  How do you ensure that a second process Q
 >> cannot interfere by e.g. attempting to evict the frame while it is
 >> still being read in?
 
+Reading in from a file requires a lock. Q can evict the frame because we didn't 
+write a framte table lock yet. But such a global lock
+would prevent anyone from touching the frame table and causing evictions.
+
 >> B8: Explain how you handle access to paged-out pages that occur
 >> during system calls.  Do you use page faults to bring in pages (as
 >> in user programs), or do you have a mechanism for "locking" frames
 >> into physical memory, or do you use some other design?  How do you
 >> gracefully handle attempted accesses to invalid virtual addresses?
+
+We don't have locking frames in physical memory. We just use regular eviction.
+This is probably going to cause a problem.
 
 ---- RATIONALE ----
 
@@ -160,6 +210,10 @@ If it's a a valid user addr and is above esp-64 then we extend the stack.
 >> but allows for high parallelism.  Explain where your design falls
 >> along this continuum and why you chose to design it this way.
 
+We chose to have few locks because we ran out of time and fixing deadlocks
+is time consuming and unpleasant. It makes the machine run slower naturally
+but we are trying to get this project working rather than running quickly.
+
 			 MEMORY MAPPED FILES
 			 ===================
 
@@ -168,6 +222,13 @@ If it's a a valid user addr and is above esp-64 then we extend the stack.
 >> C1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of  each in 25 words or less.
+struct map
+{
+    mapid_t id;
+    struct list_elem elem;
+    struct list pages;
+};
+We need a way to look through all of the maps and find the pages relevant
 
 ---- ALGORITHMS ----
 
@@ -175,9 +236,18 @@ If it's a a valid user addr and is above esp-64 then we extend the stack.
 >> memory subsystem.  Explain how the page fault and eviction
 >> processes differ between swap pages and other pages.
 
+Each of the threads has a maps field. This is where we store the map_id.
+Once we find the correct map_id, we look through the pages attached to that
+map so that we can write all of them back to the file system or swap.
+This frees up the space as well as doing the eviction.
+
 >> C3: Explain how you determine whether a new file mapping overlaps
 >> any existing segment.
 
+We assume that the file being sent in is the beginning of the file and
+that the file is aligned correctly. Thus, if it is an overlap, we wouldn't
+be paging it in, in the first place. We don't really check for overlaps
+in a more sophisticated way.
 ---- RATIONALE ----
 
 >> C4: Mappings created with "mmap" have similar semantics to those of
@@ -206,11 +276,16 @@ penalized.  We can't fix things until we know about them.  :-)
 >> In your opinion, was this assignment, or any of the parts of it, too
 >> easy or too hard?  Did it take too long or too little time?
 
+The directions were a bit complicated compared to previous sets. It made
+it hard to figure out what exactly to do.
+
 >> Did you find that working on a particular part of the assignment gave
 >> you greater insight into some aspect of OS design?
 
 >> Were there any parts of the assignment that you felt were unnecessarily
 >> tedious or pointless?
+I for one dislike the constantly having to use the list struct. Python's
+easy-mode list syntax spoils me.
 
 >> Is there some particular fact or hint we should give students in
 >> future quarters to help them solve the problems?  Conversely, did you
