@@ -10,6 +10,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "vm/page.h"
+#include "threads/synch.h"
 
 #define MAX_FILES 256 // Arbitrary limit on number of open files
 
@@ -121,11 +122,13 @@ struct thread {
     // That somewhere is here.
     struct list maps; // This is a list of map structs, which deals with the pages of open files
 
+
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
     /**@{*/
     uint32_t *pagedir;                  /*!< Page directory. */
     struct hash suppl_page_table;       /*!< Supplemental page table. */
+    struct lock suppl_lock; // This lock guards the suppl_page table of this thread.
     /**@{*/
 #endif
 
