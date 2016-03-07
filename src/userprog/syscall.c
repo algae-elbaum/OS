@@ -10,8 +10,6 @@
 #include "userprog/process.h"
 #include "lib/user/syscall.h"
 #include "threads/malloc.h"
-
-#define MAX_FILES 256 // Arbitrary limit on number of files
 #include "devices/shutdown.h"
 #include "devices/input.h"
 //#include "threads/pte.h"
@@ -22,7 +20,7 @@ static void syscall_handler(struct intr_frame *);
 
 static void syscall_exit(int status);
 
-static void * ptr_is_valid(const void *ptr);
+static void * check_and_convert_ptr(const void *ptr);
 
 static bool is_white_space(char input)
 {
@@ -41,7 +39,7 @@ static bool is_valid_filename(const char *file)
 // check whether a passed in pointer is valid, return correct address
 // currently doing it the slower way, will attempt to implemenent 2nd way
 // if time remains
-static void * ptr_is_valid(const void *ptr)
+static void * check_and_convert_ptr(const void *ptr)
 {   // check whether the ptr address is valid and within user virtual memory   
     // page directory is most significant 10 digits of vaddr
     // mimicking pd_no. PDSHIFT = (PTSHIFT + PTBITS) = PGBITS + 10 = 22
@@ -303,7 +301,7 @@ static void syscall_handler(struct intr_frame *f) {
     long *arg1;
     long *arg2;
 
-    if (ptr_is_valid((void*) f->esp) != NULL)
+    if (check_and_convert_ptr((void*) f->esp) != NULL)
     {
         intr_num = *((long *) f->esp);
         arg0 = (((long *) f->esp) + 1); 
@@ -331,24 +329,25 @@ static void syscall_handler(struct intr_frame *f) {
             syscall_exit(*arg0);
             break;
         case  SYS_EXEC:                   /*!< Start another process. */
-            syscall_exec((char *) ptr_is_valid((char *) *arg0));
+            syscall_exec((char *) check_and_convert_ptr((char *) *arg0));
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
             // process wait
             syscall_wait((int) *arg0);
+            break;
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_create((char *) (ptr_is_valid((char *) *arg0)), *arg1);
+            f->eax = syscall_create((char *) (check_and_convert_ptr((char *) *arg0)), *arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_remove((char *) ptr_is_valid((char *) *arg0));
+            f->eax = syscall_remove((char *) check_and_convert_ptr((char *) *arg0));
             lock_release(&filesys_lock);
             break;
         case  SYS_OPEN:                   /*!< Open a file. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_open((char *) ptr_is_valid((char *) *arg0));
+            f->eax = syscall_open((char *) check_and_convert_ptr((char *) *arg0));
             lock_release(&filesys_lock);
             break;
         case  SYS_FILESIZE:               /*!< Obtain a file's size. */
@@ -358,18 +357,18 @@ static void syscall_handler(struct intr_frame *f) {
             break;
         case  SYS_READ:                   /*!< Read from a file. */
             // while we have access to the vaddr, check it it's read_only
-            ptr_is_valid((void *) *arg1); // First make sure the address is real
+            check_and_convert_ptr((void *) *arg1); // First make sure the address is real
             struct thread *curr = thread_current();
             suppl_page *pg = suppl_page_lookup(&curr->suppl_page_table, (void *) *arg1);
             if (pg != NULL && pg->read_only) // NULL is possible because stack extensions are legal
                 syscall_exit(-1);
             lock_acquire(&filesys_lock);
-            f->eax = syscall_read(*arg0, ptr_is_valid((void *) *arg1), *arg2);
+            f->eax = syscall_read(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
             lock_release(&filesys_lock);
             break;
         case  SYS_WRITE:                  /*!< Write to a file. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_write(*arg0, ptr_is_valid((void *) *arg1), *arg2);
+            f->eax = syscall_write(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
             lock_release(&filesys_lock);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
@@ -389,7 +388,7 @@ static void syscall_handler(struct intr_frame *f) {
             break;
         case  SYS_MMAP:                   /*!< Map a file into memory. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_mmap(*arg0, ptr_is_valid((void *) *arg1));
+            f->eax = syscall_mmap(*arg0, check_and_convert_ptr((void *) *arg1));
             lock_release(&filesys_lock);
             break;
         case  SYS_MUNMAP:                 /*!< Remove a memory mapping. */
