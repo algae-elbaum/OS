@@ -41,15 +41,14 @@ which parts.
 
 
 Kyle 15
-Henry 11
+Henry 23
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
 
 Kyle: Supplemental Page Table. pair programming with henry on frame table
 Henry: Frame table, eviction minus the swapping out/writing to files, stack
-       extension, reading in from mmapped pages on pagefault, some of the
-       structure of the supplemental page table
+       extension, reading in from mmapped pages on pagefault, page reclamation
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -68,6 +67,12 @@ not required by the question.
 
 >> A2: In a few paragraphs, describe your code for locating the frame,
 >> if any, that contains the data of a given page.
+
+I don't think we have code that does that. What would it be for?
+Basically everything we do involves there not being a frame with the
+data (pagefaults), working with the frame directly (eviction), or
+setting up suppl_pages that don't have to think about frames until
+the get pagefaulted at (initial setup, mmap)
 
 >> A3: How does your code coordinate accessed and dirty bits between
 >> kernel and user virtual addresses that alias a single frame, or
@@ -99,14 +104,27 @@ virtual mem to physical mem.
 
 >> B2: When a frame is required but none is free, some frame must be
 >> evicted.  Describe your code for choosing a frame to evict.
+Right now it just picks the first available frame from the frame table.
+Really bad, but we need to focus on getting more things functioning at all
 
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
 >> structures) to reflect the frame Q no longer has?
 
+When Q lost the frame to eviction, the frame table entry was cleared,
+the frame was removed from Q's pagedir mapping, and if swapping gets 
+working it'll have written out any changes to the frame. Then when
+P gets the frame, a frame table entry is made for it with P's info,
+P's pagedir is updated to have the frame, and the frame is filled with
+the appropriate data (at least, it gets the right data if the data
+should be zeros or from a file. If swapping gets done, it'll also have
+that)
+
 >> B4: Explain your heuristic for deciding whether a page fault for an
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
+
+If it's a a valid user addr and is above esp-64 then we extend the stack.
 
 ---- SYNCHRONIZATION ----
 
@@ -165,6 +183,13 @@ virtual mem to physical mem.
 >> that much of their implementation can be shared.  Explain why your
 >> implementation either does or does not share much of the code for
 >> the two situations.
+
+The implementations do not share code (except for the creation of new
+suppl_pages). Loading executables involves potentially also making a 
+bunch of zeroed pages that shouldn't have a filename associated with
+them, and the non zeroed pages need to be marked as from an executable
+so the swapping vs reading from file can be done correctly. mmap doesn't
+do those things well (at all, really).
 
 			   SURVEY QUESTIONS
 			   ================
