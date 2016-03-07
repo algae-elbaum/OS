@@ -42,7 +42,7 @@ which parts.
 
 Kyle 15
 Henry 23
-Bianca lord only knows
+Bianca 21
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -51,7 +51,8 @@ Kyle: Supplemental Page Table. pair programming with henry on frame table
 Henry: Frame table, eviction minus the swapping out/writing to files, stack
        extension, reading in from mmapped pages on pagefault, page reclamation
 Bianca: writing out frames/pages to file or to swap. Helped with supplemental page
-        table stuff and general debugging. 
+        table stuff and general debugging. Eviction implementation; swapping stuff
+        out and back in.
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
