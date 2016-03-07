@@ -10,7 +10,7 @@
 
 Kyle Seipp kseipp@caltech.edu
 Henry Elbaum helbaum@caltech.edu
-
+Bianca Ray Avalani brayaval@caltech.edu
 
 >> Specify how many late tokens you are using on this assignment:  
 
@@ -42,6 +42,7 @@ which parts.
 
 Kyle 15
 Henry 23
+Bianca lord only knows
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -49,6 +50,8 @@ Henry 23
 Kyle: Supplemental Page Table. pair programming with henry on frame table
 Henry: Frame table, eviction minus the swapping out/writing to files, stack
        extension, reading in from mmapped pages on pagefault, page reclamation
+Bianca: writing out frames/pages to file or to swap. Helped with supplemental page
+        table stuff and general debugging. 
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -145,7 +148,7 @@ virtual mem to physical mem.
 
 >> C1: Copy here the declaration of each new or changed `struct' or
 >> `struct' member, global or static variable, `typedef', or
->> enumeration.  Identify the purpose of each in 25 words or less.
+>> enumeration.  Identify the purpose of  each in 25 words or less.
 
 ---- ALGORITHMS ----
 
