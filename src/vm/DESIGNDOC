@@ -20,7 +20,7 @@ Bianca Ray Avalani brayaval@caltech.edu
    on Moodle.)
 
    Repository URL: login.cms.caltech.edu:/cs/courses/cs124/teams/ComedicLuddites 
-   commit ... 6e19c35b541bb1ca96f0b26a64432377a52d0a82
+   commit ... 
 
 ---- PRELIMINARIES ----
 
@@ -167,8 +167,8 @@ This is the queue to do the eviction policy.
 >> evicted.  Describe your code for choosing a frame to evict.
 
 We have a queue of all of the frames. And we choose the first frame that
-is clean. A frame that is dirty is sent ot the back of the queue and set to clean
-This means that we will eventually find a frame to evict.
+is clean. A frame that is dirty is sent to the back of the queue and
+set to clean, meaning that that we will eventually find a frame to evict.
 
 >> B3: When a process P obtains a frame that was previously used by a
 >> process Q, how do you adjust the page table (and any other data
@@ -187,7 +187,7 @@ that)
 >> invalid virtual address should cause the stack to be extended into
 >> the page that faulted.
 
-If it's a a valid user addr and is above esp-64 then we extend the stack.
+If it's a a valid user address and is above esp-64 then we extend the stack.
 
 ---- SYNCHRONIZATION ----
 
