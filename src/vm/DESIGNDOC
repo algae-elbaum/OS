@@ -42,7 +42,7 @@ which parts.
 
 Kyle ~25
 Henry 23
-Bianca 21
+Bianca 25
 
 >> L2: What did each team member focus on for this assignment?  Keep
    descriptions to 25-30 words or less.
@@ -51,8 +51,8 @@ Kyle: Supplemental Page Table. pair programming with henry on frame table, concu
 Henry: Frame table, eviction minus the swapping out/writing to files, stack
        extension, reading in from mmapped pages on pagefault, page reclamation
 Bianca: writing out frames/pages to file or to swap. Helped with supplemental page
-        table stuff and general debugging. Eviction implementation; swapping stuff
-        out and back in.
+        table stuff and general debugging. Helped with eviction implementation; wrote
+        swapping stuff out and back in.
 
 Note that this design document is a bit long.  Most of the questions can be
 answered pretty briefly.  Don't feel a need to write a long answer if it is
@@ -82,7 +82,7 @@ the get pagefaulted at (initial setup, mmap)
 >> kernel and user virtual addresses that alias a single frame, or
 >> alternatively how do you avoid the issue?
 
-If a user process talks to a page, then it dirties the address in user and the kernel
+Mostly unimplemented; currently, if a user process talks to a page, then it dirties the address in user and the kernel
 address. If the kernel dirties something it only dirties the kernel address.
 This might cause problens.
 

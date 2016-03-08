@@ -222,6 +222,7 @@ void swap_in_page (void *upage)
 //cChoose which who to evict rather than ask the evict policy in here
 static void evict_frame(frame_entry *evictee)
 {
+    // if this is uncommented, it says kernel image too big???
     PANIC("Not ready for evictions yet");
     // If the page is dirty, try to save it. Panic if it can't be swapped out
     if (! write_out_frame(evictee))
