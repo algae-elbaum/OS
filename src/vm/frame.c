@@ -35,10 +35,14 @@ The evicted frame may then be used to store a different page.
 #include "filesys/file.h"
 #include "devices/block.h"
 #include "limits.h"
+#include "threads/malloc.h"
 
 // This is ripped from the calculation in the initialization in palloc.c 
 // (1024 comes from hacky gdb experimentation to figure out init_ram_pages)
 #define NUM_FRAMES (((1024 * PGSIZE - 1024 * 1024) / PGSIZE) / 2)
+
+// list keeping track of the filled slots
+struct list list_filled_slots;
 
 typedef struct frame_entry
 {
@@ -48,20 +52,28 @@ typedef struct frame_entry
     struct list_elem elem; // We want to use the clock algorithm, so we need a queue of frames
 } frame_entry;
 
-// for swapping stuff bback in, but no time to implement
+// for swapping stuff back in
 typedef struct filled_slot
 {
     int sector_idx; // first sector index filled
-    struct suppl_page s_page; // the page it's filled by
+    struct suppl_page *s_page; // the page it's filled by
+    struct thread *thrd; // thread corresponding to the frame
+    struct list_elem elem; // linked list elem to store slots
 } filled_slot;
 
 // IAMA frame table.
 static frame_entry frame_table[NUM_FRAMES] = {{0}};
+// what's it like being a frame table?
+
+static bool is_free_slot[INT_MAX] = {false};
+
+
 struct list frame_clock_queue;
 // Have to set up the list of frames somwhere.
 void frames_init(void)
 {
     list_init(&frame_clock_queue);
+    list_init(&list_filled_slots);
 }
 
 static int find_available_frame_idx(void)
@@ -120,7 +132,8 @@ static bool write_out_frame(frame_entry *frame)
                                                 frame->upage);
     
     struct block *b = block_get_role(BLOCK_SWAP);
-    bool is_free_slot[INT_MAX] = {false};
+
+    struct filled_slot *fs = (filled_slot *) malloc(sizeof(filled_slot));
 
     if (pagedir_is_dirty(frame->holding_thread->pagedir, s_page))
     {
@@ -150,12 +163,59 @@ static bool write_out_frame(frame_entry *frame)
                         block_write(b, (i*PGSIZE) + j, s_page->kaddr + (j * BLOCK_SECTOR_SIZE));
                     }
                     is_free_slot[i] = true;
+                    
+                    // note the correct filled slot and put its list elem into the list
+                    // keeping track of filled slots
+                    fs->sector_idx = i;
+                    fs->thrd = thread_current();
+                    fs->s_page = s_page;
+
+                    list_push_back(&list_filled_slots, &fs->elem);
                 }
             }
+
+
         }
     }
     
     return false;
+}
+
+// swap pages back into physical kernel addresses
+void swap_in_page (void *upage)
+{
+    // swap back in, then clear swap
+    // check if same process, same page
+    // move it from that index into kernel address                
+
+    struct block *b = block_get_role(BLOCK_SWAP);
+    struct filled_slot *fs;
+    struct list_elem *e;
+
+    // iterate through the list of filled slots until the right one is found
+    for (e = list_begin (&list_filled_slots); e != list_end (&list_filled_slots); e = list_next (e))
+    {
+        // get the filled slot corresponding to that element
+        struct filled_slot *fs = list_entry (e, struct filled_slot, elem);
+        // check that it has the correct upage and process
+        if (fs->s_page == upage && fs->thrd == thread_current())
+        {
+            break;
+        }
+    }
+
+    // read the block into the kernel address
+    int i, j;
+    for (i = 0; i < b->size/PGSIZE; i = i + PGSIZE)
+    {
+        for (j = fs->sector_idx; j < PGSIZE; j = j + BLOCK_SECTOR_SIZE)
+        {
+            block_read(b, (i*PGSIZE) + j, fs->s_page->kaddr + (j * BLOCK_SECTOR_SIZE));
+        }                
+    }
+
+    list_remove(e);
+    free(fs);
 }
 
 // TODO make this function take an argument and then make the eviction policy

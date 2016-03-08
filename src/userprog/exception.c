@@ -191,6 +191,8 @@ static void page_fault(struct intr_frame *f) {
         {
             if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
                 memset(kaddr, 0, PGSIZE);
+            else
+                swap_in_page(upage);
             // else
                 // TODO Need to swap in
 
