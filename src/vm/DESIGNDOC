@@ -12,14 +12,15 @@ Kyle Seipp kseipp@caltech.edu
 Henry Elbaum helbaum@caltech.edu
 Bianca Ray Avalani brayaval@caltech.edu
 
->> Specify how many late tokens you are using on this assignment:  
+>> Specify how many late tokens you are using on this assignment: 
+4 
 
 >> What is the Git repository and commit hash for your submission?
    (You only need to include the commit-hash in the file you submit
    on Moodle.)
 
-   Repository URL:  
-   commit ...
+   Repository URL: login.cms.caltech.edu:/cs/courses/cs124/teams/ComedicLuddites 
+   commit ... 6e19c35b541bb1ca96f0b26a64432377a52d0a82
 
 ---- PRELIMINARIES ----
 
