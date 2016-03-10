@@ -12,7 +12,7 @@
 #include "vm/page.h"
 #include "threads/synch.h"
 
-#define MAX_FILES 256 // Arbitrary limit on number of open files
+#define MAX_FILES 32 // Arbitrary limit on number of open files
 
 /*! States in a thread's life cycle. */
 enum thread_status {

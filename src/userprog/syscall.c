@@ -117,9 +117,10 @@ static bool syscall_remove(const char *file)
 static int find_available_fd(void)
 {
     int i;
+    struct thread *t = thread_current();
     for (i = 2; i < MAX_FILES; i++)
     {
-        if (thread_current()->open_files[i] != NULL)
+        if (t->open_files[i] == NULL)
             return i;
     }
     return -1;
@@ -132,11 +133,12 @@ static bool check_fd(int fd)
 
 static int syscall_open(const char *file)
 {
-    if (is_valid_filename(file))
+    int fd;
+    if (is_valid_filename(file) && (fd = find_available_fd()) != -1)
     {
-        int fd = find_available_fd();
-        thread_current()->open_files[fd] = filesys_open(file);
-        if (thread_current()->open_files[fd] == NULL)
+        struct thread *t = thread_current();
+        t->open_files[fd] = filesys_open(file);
+        if (t->open_files[fd] == NULL)
         {
             return -1;
         }
@@ -346,7 +348,7 @@ static void syscall_handler(struct intr_frame *f) {
             break;
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
-            f->eax = syscall_create((char *) (check_and_convert_ptr((char *) *arg0)), *arg1);
+            f->eax = syscall_create((char *) check_and_convert_ptr((char *) *arg0), *arg1);
             lock_release(&filesys_lock);
             break;
         case  SYS_REMOVE:                 /*!< Delete a file. */
