@@ -2,25 +2,8 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
-#include "threads/synch.h"
 
 struct inode;
-
-/*! An open file. */
-struct file {
-    struct inode *inode;        /*!< File's inode. */
-    off_t pos;                  /*!< Current position. */
-    bool deny_write;            /*!< Has file_deny_write() been called? */
-    char file_name[14];           /*!< The name of the file. It's 14 chars long bc the set says so.*/
-};
-
-/*
-        This is kinda evil, and should die as soon as we start set 6. But for now
-        we must prevent any concurrent access to the filesystem, so anything that
-        does anything in the filesystem must acquire this lock
-*/
-extern struct lock filesys_lock;
-
 
 /* Opening and closing files. */
 struct file *file_open (struct inode *);

@@ -18,9 +18,6 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "lib/kernel/list.h"
-#include "threads/synch.h"
-#include "vm/page.h"
-#include "vm/frame.h"
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
@@ -47,14 +44,6 @@ tid_t process_execute(const char *cmd) {
     // Extract the file_name
     char *file_name, *temp;
     file_name = strtok_r(cmd_copy2, " ", &temp);
-
-   // Setup the information in the supplemental page table
-   // we need to create a suppl_page object which has values for
-   // readonly, v_addr, p_addr, size, and file_name
-   // Since this is an executable, it should be RO.
-   // We can get its addrs from the frame table (I think)
-   // I'm not sure where to get size, but we can get the
-   // filename from the input to this function, *cmd
 
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, cmd_copy);
@@ -106,13 +95,6 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
     struct intr_frame if_;
     bool success;
 
-    // Doing this here feels really really bad. It can't happen in init_thread
-    // without issues because the hash_init needs the current thread to be running
-    // and that isn't always the case in init_thread
-    lock_acquire(&thread_current()->suppl_lock);
-    hash_init (&thread_current()->suppl_page_table, suppl_page_hash, suppl_page_less, NULL);
-    lock_release(&thread_current()->suppl_lock);
-
     // Start tokenizing the command to get the file_name
     char *token, *save_ptr;
     token = strtok_r(cmd, " ", &save_ptr); // token is now file_name
@@ -149,7 +131,7 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
         }
         args_ptrs[i] = ((char *) if_.esp);
     }
-
+   
     // Done with this forever now
     palloc_free_page(cmd);
 
@@ -201,12 +183,14 @@ int process_wait(tid_t child_tid) {
     for (e = list_begin (&curr->children); e != list_end (&curr->children);
            e = list_next (e))
         {
+          
           f = list_entry(e, struct thread, child_of);
           if (f->tid == child_tid)
           {
             is_a_child = 1;
             break;
           }
+          
         }
     if (! is_a_child)
     {
@@ -241,7 +225,7 @@ int process_wait(tid_t child_tid) {
 void process_exit(void) {
     struct thread *cur = thread_current();
     uint32_t *pd;
-
+    
     // Print exit message
     printf ("%s: exit(%d)\n", cur->name, cur->exit_val);
 
@@ -274,7 +258,7 @@ void process_activate(void) {
     /* Set thread's kernel stack for use in processing interrupts. */
     tss_update();
 }
-
+
 /*! We load ELF binaries.  The following definitions are taken
     from the ELF specification, [ELF1], more-or-less verbatim.  */
 
@@ -358,7 +342,7 @@ bool load(const char *file_name, void (**eip) (void), void **esp) {
 
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create();
-    if (t->pagedir == NULL)
+    if (t->pagedir == NULL) 
         goto done;
     process_activate();
 
@@ -451,7 +435,7 @@ done:
     file_close(file);
     return success;
 }
-
+
 /* load() helpers. */
 
 static bool install_page(void *upage, void *kpage, bool writable);
@@ -474,7 +458,7 @@ static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
     /* The segment must not be empty. */
     if (phdr->p_memsz == 0)
         return false;
-
+  
     /* The virtual memory region must both start and end within the
        user address space range. */
     if (!is_user_vaddr((void *) phdr->p_vaddr))
@@ -511,7 +495,6 @@ static bool validate_segment(const struct Elf32_Phdr *phdr, struct file *file) {
 
     Return true if successful, false if a memory allocation error or disk read
     error occurs. */
-
 static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
                          uint32_t read_bytes, uint32_t zero_bytes,
                          bool writable) {
@@ -519,54 +502,54 @@ static bool load_segment(struct file *file, off_t ofs, uint8_t *upage,
     ASSERT(pg_ofs(upage) == 0);
     ASSERT(ofs % PGSIZE == 0);
 
-    lock_acquire(&thread_current()->suppl_lock);
-    lock_acquire(&filesys_lock);
-    // Not using mmap because there's weirdness that needs to be set about having
-    // initial segfaults get data from the file, but subsequently they gotta use
-    // swap. Also there's the zero_bytes weirdness that mmap doesn't handle
-    unsigned file_size = file_length(file);
-    ASSERT(read_bytes < file_size - ofs);
-
-    while(read_bytes > 0 || zero_bytes > 0)
-    {
-        // Make new suppl_page table entry
-        unsigned page_read_bytes = (read_bytes < PGSIZE) ? read_bytes : PGSIZE;
+    file_seek(file, ofs);
+    while (read_bytes > 0 || zero_bytes > 0) {
+        /* Calculate how to fill this page.
+           We will read PAGE_READ_BYTES bytes from FILE
+           and zero the final PAGE_ZERO_BYTES bytes. */
+        size_t page_read_bytes = read_bytes < PGSIZE ? read_bytes : PGSIZE;
         size_t page_zero_bytes = PGSIZE - page_read_bytes;
-        suppl_page * page = new_suppl_page(!writable, upage);
-        if (page_read_bytes > 0)
-        {
-            set_suppl_page_file(page, file->file_name, ofs, page_read_bytes);
-            page->elf_status = nonfaulted_ELF;
+
+        /* Get a page of memory. */
+        uint8_t *kpage = palloc_get_page(PAL_USER);
+        if (kpage == NULL)
+            return false;
+
+        /* Load this page. */
+        if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
+            palloc_free_page(kpage);
+            return false;
         }
-        hash_insert(&thread_current()->suppl_page_table, &page->hash_elem);
-        ofs += PGSIZE;
-        upage += PGSIZE;
+        memset(kpage + page_read_bytes, 0, page_zero_bytes);
+
+        /* Add the page to the process's address space. */
+        if (!install_page(upage, kpage, writable)) {
+            palloc_free_page(kpage);
+            return false; 
+        }
+
+        /* Advance. */
         read_bytes -= page_read_bytes;
         zero_bytes -= page_zero_bytes;
+        upage += PGSIZE;
     }
-    lock_release(&filesys_lock);
-    lock_release(&thread_current()->suppl_lock);
-    return true; // Failure is not an option
-
+    return true;
 }
 
 /*! Create a minimal stack by mapping a zeroed page at the top of
     user virtual memory. */
 static bool setup_stack(void **esp) {
-    void *upage = (void *) (((uint8_t *) PHYS_BASE) - PGSIZE);
-    lock_acquire(&thread_current()->suppl_lock);
-    suppl_page *faulted_page = new_suppl_page(false, upage);
-    hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
-    lock_release(&thread_current()->suppl_lock);
-    void *kpage = get_unused_frame(thread_current(), upage);
-    faulted_page->kaddr = kpage;
-    memset(kpage, 0, PGSIZE);
+    uint8_t *kpage;
+    bool success = false;
 
-    bool success = install_page(upage, kpage, true);
-    if (success)
-        *esp = PHYS_BASE;
-    else
-        palloc_free_page(kpage);
+    kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+    if (kpage != NULL) {
+        success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+        if (success)
+            *esp = PHYS_BASE - 8;
+        else
+            palloc_free_page(kpage);
+    }
     return success;
 }
 
@@ -587,3 +570,4 @@ static bool install_page(void *upage, void *kpage, bool writable) {
     return (pagedir_get_page(t->pagedir, upage) == NULL &&
             pagedir_set_page(t->pagedir, upage, kpage, writable));
 }
+

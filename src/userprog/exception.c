@@ -1,20 +1,9 @@
 #include "userprog/exception.h"
 #include <inttypes.h>
 #include <stdio.h>
-#include <string.h>
 #include "userprog/gdt.h"
-#include "userprog/process.h"
-#include "userprog/pagedir.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "threads/pte.h"
-#include "threads/vaddr.h"
-#include "threads/synch.h"
-#include "vm/page.h"
-#include "vm/frame.h"
-#include "filesys/file.h"
-#include "filesys/filesys.h"
-#include <hash.h>
 
 /*! Number of page faults processed. */
 static long long page_fault_cnt;
@@ -80,7 +69,7 @@ static void kill(struct intr_frame *f) {
        the kernel.  Real Unix-like operating systems pass most
        exceptions back to the process via signals, but we don't
        implement them. */
-
+     
     /* The interrupt frame's code segment value tells us where the
        exception originated. */
     switch (f->cs) {
@@ -90,7 +79,6 @@ static void kill(struct intr_frame *f) {
         printf("%s: dying due to interrupt %#04x (%s).\n",
                thread_name(), f->vec_no, intr_name(f->vec_no));
         intr_dump_frame(f);
-        thread_current()->exit_val = -1;
         thread_exit(); 
 
     case SEL_KCSEG:
@@ -110,7 +98,9 @@ static void kill(struct intr_frame *f) {
     }
 }
 
-/*! Page fault handler.
+/*! Page fault handler.  This is a skeleton that must be filled in
+    to implement virtual memory.  Some solutions to project 2 may
+    also require modifying this code.
 
     At entry, the address that faulted is in CR2 (Control Register
     2) and information about the fault, formatted as described in
@@ -144,81 +134,14 @@ static void page_fault(struct intr_frame *f) {
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
-    // 1. Locate the page that faulted in the suppl_page_table
-    void *upage = (void *) (((uintptr_t) fault_addr >> PGBITS) << PGBITS); // I could have sworn there was a nicer way of doing this
-    lock_acquire(&thread_current()->suppl_lock);
-    suppl_page *faulted_page = suppl_page_lookup(&thread_current()->suppl_page_table, upage);
-    lock_release(&thread_current()->suppl_lock);
-
-    // Either the page doesn't exist because we're not allowed to use it, or the
-    // stack needs extending
-    if (faulted_page == NULL)
-    {
-        // See if we should extend the stack
-        if (fault_addr > f->esp - 64 && is_user_vaddr(fault_addr))
-        {
-            // Extend the stack:
-            // Create the supplemental page table entry for it
-            faulted_page = new_suppl_page(false, upage);
-            // Add the supplemental page to the supplemental page table
-            hash_insert(&thread_current()->suppl_page_table, &faulted_page->hash_elem);
-        }
-        // If it's not a stack extension, destroy the process
-        else
-            kill(f);
-    }
-
-    // Now that we're guaranteed to have a non-null faulted_page, do some checks
-    // If it's readonly and we tried to write, then there's a problem
-    if (faulted_page->read_only && write)
-    {
-        kill(f);
-    }
-    // If a user tried to do it and its meant to be in kernel mode, we have a problem.
-    if(user && ! is_user_vaddr(fault_addr))
-    {
-        kill(f);
-    }
-
-    // Now get a frame, tie it to the faulting page, and fill it with the data it wants
-    if(not_present)
-    {
-        void *kaddr = get_unused_frame(thread_current(), upage);
-        faulted_page->kaddr = kaddr;
-        // We want to copy the memory of the physical memory into the frame table.
-        // There are three cases, swap, file and 0s
-        if(faulted_page->file_name[0] == '\0' || faulted_page->elf_status == faulted_ELF) // All zeros or swap
-        {
-            if (faulted_page->swap_index == -1) // Not swapped yet, zero it out
-                memset(kaddr, 0, PGSIZE);
-            // else, swap in the page
-            else
-                swap_in_page(upage);
-
-        }
-
-        else // It's part of a file, copy in the part we need
-        {
-            // First, if this is ELF stuff, we need future faults to come from swap
-            // This could probably be done better to save io by conditioning on
-            // whether writing is allowed to the ELF 
-            if (faulted_page->elf_status == nonfaulted_ELF)
-                faulted_page->elf_status = faulted_ELF;
-
-            // Will have to think harder about general concurrency, but this is
-            // file stuff, so we at least need to lock the filesystem on it
-            lock_acquire(&filesys_lock);
-            // Since memory mapping has got to work even when the file is closed,
-            // I think it has to be done this way
-            struct file *f = filesys_open(faulted_page->file_name);
-            file_seek(f, faulted_page->file_offset);
-            int bytes_written = file_read(f, kaddr, faulted_page->bytes_to_read);
-            memset(kaddr + bytes_written, 0, PGSIZE - bytes_written);
-            file_close(f);
-            lock_release(&filesys_lock);
-        }
-        // Now the frame should be filled with all the right data. Time to register it
-        pagedir_set_page(thread_current()->pagedir, upage, kaddr, ! faulted_page->read_only);
-    }
+    /* To implement virtual memory, delete the rest of the function
+       body, and replace it with code that brings in the page to
+       which fault_addr refers. */
+    printf("Page fault at %p: %s error %s page in %s context.\n",
+           fault_addr,
+           not_present ? "not present" : "rights violation",
+           write ? "writing" : "reading",
+           user ? "user" : "kernel");
+    kill(f);
 }
 

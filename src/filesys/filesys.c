@@ -61,10 +61,7 @@ struct file * filesys_open(const char *name) {
         dir_lookup(dir, name, &inode);
     dir_close(dir);
 
-    struct file* temp = file_open(inode);
-    if (temp != NULL)
-        memcpy(temp->file_name, name, strlen(name));
-    return temp;
+    return file_open(inode);
 }
 
 /*! Deletes the file named NAME.  Returns true if successful, false on failure.

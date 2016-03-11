@@ -9,10 +9,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include "vm/page.h"
-#include "threads/synch.h"
 
-#define MAX_FILES 32 // Arbitrary limit on number of open files
+#define MAX_FILES 256 // Arbitrary limit on number of open files
 
 /*! States in a thread's life cycle. */
 enum thread_status {
@@ -112,23 +110,17 @@ struct thread {
     struct list children;               // List of the children of a thread. actually threads
     struct list_elem child_of;
     struct thread * parent; //this thread's parent
+    // TODO remember to set up things with thread->status
     bool completed;                     // If this thread has terminated. might be subsumed by status
     bool used;                          // If we have already been reaped
     tid_t blocked_on; // if we are blocked on a child, this is what it is. err its tid
     int exit_val; // This is the value that we are on exit.
     /**@}*/
 
-    // Each thread can have some files that it has mapped. We need to store that somewhere.
-    // That somewhere is here.
-    struct list maps; // This is a list of map structs, which deals with the pages of open files
-
-
 #ifdef USERPROG
     /*! Owned by userprog/process.c. */
     /**@{*/
     uint32_t *pagedir;                  /*!< Page directory. */
-    struct hash suppl_page_table;       /*!< Supplemental page table. */
-    struct lock suppl_lock; // This lock guards the suppl_page table of this thread.
     /**@{*/
 #endif
 
