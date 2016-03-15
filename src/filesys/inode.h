@@ -20,4 +20,7 @@ void inode_deny_write(struct inode *);
 void inode_allow_write(struct inode *);
 off_t inode_length(const struct inode *);
 
+block_sector_t byte_to_sector(const struct inode *inode, off_t pos);
+bool writes_forbidden(const struct inode *inode);
+
 #endif /* filesys/inode.h */
