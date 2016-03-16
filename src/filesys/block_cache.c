@@ -1,7 +1,9 @@
 #include "block_cache.h"
 #include <debug.h>
 #include <string.h>
+#include <list.h>
 #include "threads/synch.h"
+#include "threads/malloc.h"
 #include "devices/timer.h"
 #include "devices/block.h"
 #include "inode.h"
@@ -29,6 +31,19 @@ typedef struct cache_slot_nv // nv for not volatile
     uint8_t data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
 } cache_slot_nv;
 
+
+typedef struct caching_in_elem
+{
+    block_sector_t sector;
+    int slot;
+    struct list_elem elem;
+    struct lock lock;
+    struct condition cond;
+} caching_in_elem;
+
+static struct list caching_in_list;
+static struct lock caching_in_list_lock;
+
 static volatile cache_slot_v cache_v[NUM_SLOTS] = {{0}};;
 static cache_slot_nv cache_nv[NUM_SLOTS];
 
@@ -36,13 +51,8 @@ static volatile block_sector_t free_slots = NUM_SLOTS;
 
 void cache_init(void)
 {
-    // int i;
-    // for (i = 0; i < NUM_SLOTS; i++)
-    // {
-    //     int j;
-    //     for (j = 0; j < BLOCK_SECTOR_SIZE; j++)
-    //         cache_nv[i].data[j] = 1;
-    // }
+    list_init(&caching_in_list);
+    lock_init(&caching_in_list_lock);
 }
 
 // TODO potentially keep track of whether slots are dirty and only then do any writing
@@ -102,8 +112,6 @@ static int find_slot_to_evict(void)
             }
         }
     }
-    if (best == -1)
-        PANIC("AHHHHHHH AHHHHH AHHHHHHHHHHHHHHHHHHHH");
     return best;
 } 
 
@@ -133,11 +141,7 @@ static int evict_slot(void)
     return free_slot;
 }
 
-
-//TODO Two processes may not bring in the same block separately 
-// (locked list of blocks being currently processed, plus conditions for newcomers
-// to wait on)
-static int get_cache_slot(struct inode *inode, block_sector_t sector)
+static int slot_of(block_sector_t sector)
 {
     int i;
     for (i = 0; i < NUM_SLOTS; i++)
@@ -153,10 +157,80 @@ static int get_cache_slot(struct inode *inode, block_sector_t sector)
         // Not the slot we want, current thread should no longer block eviction
         A_DEC(cache_v[i].in_use);
     }
+    return -1;
+}
 
-    // block is not cached, bring it in
+static int get_cache_slot(struct inode *inode, block_sector_t sector)
+{
+    // If the sector is already cached in, just return it  
+    int new_slot_try1 = slot_of(sector);
+    if (new_slot_try1 != -1)
+    {
+        return new_slot_try1;
+    }
+
+    // Otherwise we have to be careful not to bring in the same sector in twice
+    // if two different processes ask for it
+
+    // See if anyone is bringing in the sector yet
+    lock_acquire(&caching_in_list_lock);
+    struct list_elem *e;
+    for (e = list_begin (&caching_in_list); e != list_end (&caching_in_list);
+         e = list_next (e))
+    {
+        struct caching_in_elem *f = list_entry (e, struct caching_in_elem, elem);
+        // Someone is already bringing the sector in
+        if (f->sector == sector)
+        {
+            // Wait for them to finish
+            lock_acquire(&f->lock);
+            cond_wait(&f->cond, &f->lock);
+            lock_release(&f->lock);
+            // And return the slot the sector was read into (no need for slot_of!)
+            A_INC(cache_v[f->slot].in_use);
+            return f->slot;
+        }
+    }
+    // No one is bringing the sector in yet.
+    // Set up caching_in_elem
+    caching_in_elem *elem = malloc(sizeof(caching_in_elem));
+    lock_init(&elem->lock);
+    cond_init(&elem->cond);
+    elem->sector = sector;
+    list_push_back(&caching_in_list, &elem->elem);
+    lock_release(&caching_in_list_lock);
+
+    // It is possible that two processes tried to bring in the same sector, both
+    // discovered that it's not cached in, and then one starts and finishes bringing
+    // it in before the other iterates through caching_in_list. This slot_of makes
+    // sure that doesn't result in bringing the sector in twice
+    int new_slot_try2 = slot_of(sector);
+    if (new_slot_try1 != -1)
+    {
+        lock_acquire(&caching_in_list_lock);
+        elem->slot = new_slot_try2;
+        // In case someone saw the elem in the list and waited on the condition
+        lock_acquire(&elem->lock);
+        cond_broadcast(&elem->cond, &elem->lock);
+        lock_release(&elem->lock);
+        list_remove(&elem->elem);
+        lock_release(&caching_in_list_lock);
+        free(elem);
+        return new_slot_try1;
+    }
+
+    // Otherwise we're free to read in the sector
     int new_slot = evict_slot();
     read_into_slot(new_slot, inode, sector);
+    // Now remove elem from caching_in_list and wake up everyone that was conditioned on it
+    lock_acquire(&caching_in_list_lock);
+    elem->slot = new_slot;
+    lock_acquire(&elem->lock);
+    cond_broadcast(&elem->cond, &elem->lock);
+    lock_release(&elem->lock);
+    list_remove(&elem->elem);
+    lock_release(&caching_in_list_lock);
+    free(elem);
     return new_slot;
 }
 
