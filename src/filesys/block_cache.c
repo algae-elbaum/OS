@@ -5,6 +5,7 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 #include "threads/thread.h"
+#include "threads/interrupt.h"
 #include "devices/timer.h"
 #include "devices/block.h"
 #include "inode.h"
@@ -84,10 +85,11 @@ void cache_init(void)
 
 void cache_done(void)
 {
-    // Probably need a way of killing read_ahead_tid and flush_tid.
-    // Though it's possible that making timer_sleep work correctly will make
-    // unnnecessary
-    // cache_flush();
+    // Why are interrupts even off?
+    // This feels really sketchy
+    intr_enable();
+    cache_flush();
+    intr_disable();
 }
 
 // Run through the read ahead list pulling each sector into the cache
