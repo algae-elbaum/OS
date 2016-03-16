@@ -123,6 +123,8 @@ struct thread {
     struct condition exec_cond;
     bool exec_success;
 
+    int wake_me_up; // WAKE ME UP INSIDE
+
     /**@}*/
 
 #ifdef USERPROG
@@ -161,6 +163,7 @@ const char *thread_name(void);
 
 void thread_exit(void) NO_RETURN;
 void thread_yield(void);
+void thread_sleep(int64_t);
 
 /*! Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func(struct thread *t, void *aux);

@@ -4,6 +4,7 @@
 #include <random.h>
 #include <stdio.h>
 #include <string.h>
+#include "devices/timer.h"
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
@@ -26,6 +27,9 @@ static struct list ready_list;
 /*! List of all processes.  Processes are added to this list
     when they are first scheduled and removed when they exit. */
 static struct list all_list;
+
+// List of threads blocked on the timer
+static struct list timer_blocked_list;
 
 /*! Idle thread. */
 static struct thread *idle_thread;
@@ -86,6 +90,7 @@ void thread_init(void) {
     lock_init(&tid_lock);
     list_init(&ready_list);
     list_init(&all_list);
+    list_init(&timer_blocked_list);
 
     /* Set up a thread structure for the running thread. */
     initial_thread = running_thread();
@@ -123,6 +128,21 @@ void thread_tick(void) {
 #endif
     else
         kernel_ticks++;
+
+    // Wake up sleepers
+    struct list_elem *e;
+    int64_t curr_tick = timer_ticks();
+    for (e = list_begin (&timer_blocked_list); e != list_end (&timer_blocked_list);)
+    {
+        struct list_elem *next = list_next (e);
+        struct thread *t = list_entry (e, struct thread, elem);
+        if (t->wake_me_up <= curr_tick)
+        {
+            list_remove(e);
+            thread_unblock(t);
+        }
+        e = next;
+    }
 
     /* Enforce preemption. */
     if (++thread_ticks >= TIME_SLICE)
@@ -328,6 +348,22 @@ void thread_yield(void) {
         list_push_back(&ready_list, &cur->elem);
     cur->status = THREAD_READY;
     schedule();
+    intr_set_level(old_level);
+}
+
+// Blocks until a timer interrupt sees that it's time to save this thread 
+void thread_sleep(int64_t tick)
+{
+    struct thread *cur = thread_current();
+    enum intr_level old_level;
+
+    ASSERT(!intr_context());
+    ASSERT(cur != idle_thread);
+
+    old_level = intr_disable();
+    cur->wake_me_up = tick + timer_ticks();
+    list_push_back(&timer_blocked_list, &cur->elem);
+    thread_block();
     intr_set_level(old_level);
 }
 
