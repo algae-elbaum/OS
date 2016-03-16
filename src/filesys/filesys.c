@@ -32,6 +32,7 @@ void filesys_init(bool format) {
 
 /*! Shuts down the file system module, writing any unwritten data to disk. */
 void filesys_done(void) {
+    cache_done();
     free_map_close();
 }
 

@@ -4,12 +4,16 @@
 #include <list.h>
 #include "threads/synch.h"
 #include "threads/malloc.h"
+#include "threads/thread.h"
 #include "devices/timer.h"
 #include "devices/block.h"
 #include "inode.h"
 #include "filesys.h"
 
 #define NUM_SLOTS 64
+// I have no idea what good values are for these next two #defines...
+#define READ_AHEAD_FREQ 500 // In milliseconds
+#define FLUSH_FREQ 500 // Also in milliseconds
 #define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing
 #define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing
 
@@ -21,6 +25,7 @@ typedef struct cache_slot_v // v for volatile
     volatile int trying_to_evict;   /* So that nothing tries to use the block too
                                        late into eviction to stop the eviction */
     volatile bool touched;          // Whether the slot has ever been used
+    volatile bool dirty;
 } cache_slot_v;
 
 // Separate struct because volatility is apparently infectious
@@ -56,10 +61,16 @@ typedef struct read_ahead_elem
 static struct list read_ahead_list;
 static struct lock read_ahead_lock;
 
+static tid_t read_ahead_tid;
+static tid_t flush_tid;
+
 static volatile block_sector_t free_slots = NUM_SLOTS;
 
-static int get_cache_slot(block_sector_t sector, struct inode *inode, bool not_read_ahead);
-static void write_out_slot(int slot);
+static int get_cache_slot(block_sector_t, struct inode *, bool);
+static void write_out_slot(int);
+static void cache_flush(void);
+static void cache_periodic_read_ahead(void *);
+static void cache_periodic_flush(void *);
 
 void cache_init(void)
 {
@@ -67,6 +78,16 @@ void cache_init(void)
     lock_init(&caching_in_list_lock);
     list_init(&read_ahead_list);
     lock_init(&read_ahead_lock);
+    read_ahead_tid = thread_create("read-ahead", PRI_DEFAULT, cache_periodic_read_ahead, NULL);
+    flush_tid = thread_create("flushing", PRI_DEFAULT, cache_periodic_flush, NULL);
+}
+
+void cache_done(void)
+{
+    // Probably need a way of killing read_ahead_tid and flush_tid.
+    // Though it's possible that making timer_sleep work correctly will make
+    // unnnecessary
+    // cache_flush();
 }
 
 // Run through the read ahead list pulling each sector into the cache
@@ -85,10 +106,11 @@ static void cache_read_ahead(void)
     lock_release(&read_ahead_lock);
 }
 
-void cache_periodic_read_ahead(void)
+static void cache_periodic_read_ahead(void *aux UNUSED)
 {
     while (true)
     {
+        timer_msleep(READ_AHEAD_FREQ);
         cache_read_ahead();
     }
 }
@@ -100,7 +122,7 @@ static void cache_flush(void)
     for (i = 0; i < NUM_SLOTS; i++)
     {
         A_INC(cache_v[i].in_use);
-        if (cache_v[i].touched && !cache_v[i].trying_to_evict)
+        if (! cache_v[i].trying_to_evict)
         {
             write_out_slot(i);
         }
@@ -108,21 +130,25 @@ static void cache_flush(void)
     }
 }
 
-void cache_periodic_flush(void)
+static void cache_periodic_flush(void *aux UNUSED)
 {
     while (true)
     {
+        timer_msleep(FLUSH_FREQ);
         cache_flush();
     }
 }
 
-// TODO potentially keep track of whether slots are dirty and only then do any writing
 static void write_out_slot(int slot)
 {
     // Write out the entire sector. Files don't overlap sectors, so even if it
     // would matter, nothing past EOF will even be changed from when the slot 
     // was read in
-    block_write(fs_device, cache_v[slot].sector, cache_nv[slot].data);
+    if (cache_v[slot].dirty)
+    {
+        block_write(fs_device, cache_v[slot].sector, cache_nv[slot].data);
+        cache_v[slot].dirty = false;
+    }
     // No need to clear out slot fields, if they need changing read_into_slot
     // will take care of it, and the periodic flushing of cache data shouldn't
     // affect anything but the disk
@@ -373,6 +399,7 @@ off_t cache_write_at(struct inode *inode, const void *buffer_, off_t size, off_t
         /* The cached data for the sector to read */
         int slot = get_cache_slot(sector_idx, inode, true);
         cache_v[slot].last_used = timer_ticks();
+        cache_v[slot].dirty = true;
 
         /* Bytes left in inode, bytes left in sector, lesser of the two. */
         off_t inode_left = inode_length(inode) - offset;
