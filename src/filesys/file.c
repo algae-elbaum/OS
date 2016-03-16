@@ -1,6 +1,7 @@
 #include "filesys/file.h"
 #include <debug.h>
 #include "filesys/inode.h"
+#include "filesys/block_cache.h"
 #include "threads/malloc.h"
 
 /*! An open file. */
@@ -53,7 +54,7 @@ struct inode * file_get_inode(struct file *file) {
     than SIZE if end of file is reached.  Advances FILE's position by the
     number of bytes read. */
 off_t file_read(struct file *file, void *buffer, off_t size) {
-    off_t bytes_read = inode_read_at(file->inode, buffer, size, file->pos);
+    off_t bytes_read = cache_read_at(file->inode, buffer, size, file->pos);
     file->pos += bytes_read;
     return bytes_read;
 }
@@ -64,7 +65,7 @@ off_t file_read(struct file *file, void *buffer, off_t size) {
     unaffected. */
 off_t file_read_at(struct file *file, void *buffer, off_t size,
                    off_t file_ofs) {
-    return inode_read_at(file->inode, buffer, size, file_ofs);
+    return cache_read_at(file->inode, buffer, size, file_ofs);
 }
 
 /*! Writes SIZE bytes from BUFFER into FILE, starting at the file's current
@@ -73,7 +74,7 @@ off_t file_read_at(struct file *file, void *buffer, off_t size,
     case, but file growth is not yet implemented.)
     Advances FILE's position by the number of bytes read. */
 off_t file_write(struct file *file, const void *buffer, off_t size) {
-    off_t bytes_written = inode_write_at(file->inode, buffer, size, file->pos);
+    off_t bytes_written = cache_write_at(file->inode, buffer, size, file->pos);
     file->pos += bytes_written;
     return bytes_written;
 }
@@ -85,7 +86,7 @@ off_t file_write(struct file *file, const void *buffer, off_t size) {
     The file's current position is unaffected. */
 off_t file_write_at(struct file *file, const void *buffer, off_t size,
                     off_t file_ofs) {
-    return inode_write_at(file->inode, buffer, size, file_ofs);
+    return cache_write_at(file->inode, buffer, size, file_ofs);
 }
 
 /*! Prevents write operations on FILE's underlying inode

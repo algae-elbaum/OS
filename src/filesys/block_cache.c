@@ -19,14 +19,14 @@ typedef struct cache_slot_v // v for volatile
     volatile int64_t last_used;     // Holds the tick when this was used last
     volatile int trying_to_evict;   /* So that nothing tries to use the block too
                                        late into eviction to stop the eviction */
-    volatile bool untouched;        // Whether the slot has ever been used
+    volatile bool touched;          // Whether the slot has ever been used
 } cache_slot_v;
 
 // Separate struct because volatility is apparently infectious
 // For the first time in a long time I'm seriously annoyed with C
 typedef struct cache_slot_nv // nv for not volatile
 {
-    char data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
+    uint8_t data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
 } cache_slot_nv;
 
 static volatile cache_slot_v cache_v[NUM_SLOTS] = {{0}};;
@@ -38,7 +38,11 @@ void cache_init(void)
 {
     // int i;
     // for (i = 0; i < NUM_SLOTS; i++)
-    //     lock_init(&cache_nv[i].untouched_lock);
+    // {
+    //     int j;
+    //     for (j = 0; j < BLOCK_SECTOR_SIZE; j++)
+    //         cache_nv[i].data[j] = 1;
+    // }
 }
 
 // TODO potentially keep track of whether slots are dirty and only then do any writing
@@ -80,7 +84,7 @@ static int find_slot_to_evict(void)
     int64_t best_time = timer_ticks();
     int best = -1;
     // 'while' to make sure that at the end nothing grabbed the evictee for use
-    while (best != -1 && cache_v[best].in_use != 0 && cache_v[best].trying_to_evict != 1)
+    while (best == -1 || cache_v[best].in_use != 0 || cache_v[best].trying_to_evict != 1)
     {
         best_time = timer_ticks();
         best = -1;
@@ -98,6 +102,8 @@ static int find_slot_to_evict(void)
             }
         }
     }
+    if (best == -1)
+        PANIC("AHHHHHHH AHHHHH AHHHHHHHHHHHHHHHHHHHH");
     return best;
 } 
 
@@ -111,13 +117,15 @@ static int evict_slot(void)
     {
         for (i = 0; i < NUM_SLOTS; i++) 
         {
+            A_INC(cache_v[i].trying_to_evict); // Amazing            
             // Amazing
-            bool was_untouched = __sync_bool_compare_and_swap(&cache_v[i].untouched, false, true);
+            bool was_untouched = __sync_bool_compare_and_swap(&cache_v[i].touched, false, true);
             if (was_untouched)
             {
                 A_DEC(free_slots);
                 return i;
-            }       
+            }
+            A_DEC(cache_v[i].trying_to_evict); // Amazing
         }
     }
     int free_slot = find_slot_to_evict();
@@ -129,7 +137,7 @@ static int evict_slot(void)
 //TODO Two processes may not bring in the same block separately 
 // (locked list of blocks being currently processed, plus conditions for newcomers
 // to wait on)
-static int get_cache_slot(struct inode *inode, off_t sector)
+static int get_cache_slot(struct inode *inode, block_sector_t sector)
 {
     int i;
     for (i = 0; i < NUM_SLOTS; i++)
@@ -137,7 +145,7 @@ static int get_cache_slot(struct inode *inode, off_t sector)
         // Prevent the slot from being evicted
         A_INC(cache_v[i].in_use);
         // Make sure the slot wasn't already being evicted
-        if (!cache_v[i].trying_to_evict && cache_v[i].inode == inode)
+        if (!cache_v[i].trying_to_evict && cache_v[i].sector == sector)
         {
             cache_v[i].last_used = timer_ticks();
             return i;
@@ -153,14 +161,14 @@ static int get_cache_slot(struct inode *inode, off_t sector)
 }
 
 
-// I'm a little uncomfortable moving the inode read write code over here
+// I'm a little uncomfortable just moving all the inode read write code over here
 // Seems like there should be a neater way of doing it, but I want the cache to
 // stay static
 
 // TODO when file extension happens, need to be careful reading between the
 // old EOF and the new EOF. Writes past EOF must be atomic with respect to reads 
 // past EOF
-off_t cache_read(struct inode *inode, void *buffer_, off_t size, off_t offset)
+off_t cache_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset)
 {
     uint8_t *buffer = buffer_;
     off_t bytes_read = 0;
@@ -203,13 +211,13 @@ off_t cache_read(struct inode *inode, void *buffer_, off_t size, off_t offset)
 
 
 // TODO deal with writes past EOF
-bool cache_write(struct inode *inode, const void *buffer_, off_t size, off_t offset)
+off_t cache_write_at(struct inode *inode, const void *buffer_, off_t size, off_t offset)
 {
     const uint8_t *buffer = buffer_;
     off_t bytes_written = 0;
 
     if (writes_forbidden(inode))
-        return false;
+        return 0;
 
     while (size > 0) {
         /* Sector to write, starting byte offset within sector. */
@@ -243,5 +251,5 @@ bool cache_write(struct inode *inode, const void *buffer_, off_t size, off_t off
         offset += chunk_size;
         bytes_written += chunk_size;
     }
-    return true;
+    return bytes_written;
 }
