@@ -15,7 +15,6 @@
 
 typedef struct cache_slot_v // v for volatile
 {
-    volatile struct inode *inode;   // Associated inode
     volatile block_sector_t sector; // Sector held in the slot         
     volatile int in_use;            // Count processes using this entry
     volatile int64_t last_used;     // Holds the tick when this was used last
@@ -47,12 +46,74 @@ static struct lock caching_in_list_lock;
 static volatile cache_slot_v cache_v[NUM_SLOTS] = {{0}};;
 static cache_slot_nv cache_nv[NUM_SLOTS];
 
+typedef struct read_ahead_elem
+{
+    block_sector_t sector;
+    struct inode *inode;
+    struct list_elem elem;
+} read_ahead_elem;
+
+static struct list read_ahead_list;
+static struct lock read_ahead_lock;
+
 static volatile block_sector_t free_slots = NUM_SLOTS;
+
+static int get_cache_slot(block_sector_t sector, struct inode *inode, bool not_read_ahead);
+static void write_out_slot(int slot);
 
 void cache_init(void)
 {
     list_init(&caching_in_list);
     lock_init(&caching_in_list_lock);
+    list_init(&read_ahead_list);
+    lock_init(&read_ahead_lock);
+}
+
+// Run through the read ahead list pulling each sector into the cache
+static void cache_read_ahead(void)
+{
+    lock_acquire(&read_ahead_lock);
+    while (!list_empty(&read_ahead_list))
+    {
+        struct list_elem *e = list_pop_front(&read_ahead_list);
+        lock_release(&read_ahead_lock);
+        read_ahead_elem *f = list_entry(e, struct read_ahead_elem, elem);
+        get_cache_slot(f->sector, f->inode, false);
+        free(f);
+        lock_acquire(&read_ahead_lock);
+    }
+    lock_release(&read_ahead_lock);
+}
+
+void cache_periodic_read_ahead(void)
+{
+    while (true)
+    {
+        cache_read_ahead();
+    }
+}
+
+// Write every cached sector to disk
+static void cache_flush(void)
+{
+    int i;
+    for (i = 0; i < NUM_SLOTS; i++)
+    {
+        A_INC(cache_v[i].in_use);
+        if (cache_v[i].touched && !cache_v[i].trying_to_evict)
+        {
+            write_out_slot(i);
+        }
+        A_DEC(cache_v[i].in_use);
+    }
+}
+
+void cache_periodic_flush(void)
+{
+    while (true)
+    {
+        cache_flush();
+    }
 }
 
 // TODO potentially keep track of whether slots are dirty and only then do any writing
@@ -68,19 +129,18 @@ static void write_out_slot(int slot)
 }
 
 // Read the block into the slot and fill in the struct's fields
-static void read_into_slot(int slot, struct inode *inode, block_sector_t sector)
+static void read_into_slot(int slot, block_sector_t sector)
 {
     // Copy in the whole sector, even if past EOF. 
     // The logic for not reading those needs to happen elsewhere anyways.
     block_read (fs_device, sector, cache_nv[slot].data);
-    cache_v[slot].sector = sector;
     // After reading in, the slot is given right to whatever uses it, so set in_use now
     cache_v[slot].in_use = 1;
     // If the slot was in use before, write_out_slot didn't clear trying_to_evict.
     // (don't want another eviction grabbing the slot and evicting again)
     cache_v[slot].trying_to_evict = 0;
     // Once this is set get_cache_data can find it, so must set at the end.
-    cache_v[slot].inode = inode;
+    cache_v[slot].sector = sector;
 }
 
 // Simultaneous calls may chase each other around for a bit due to the
@@ -160,7 +220,8 @@ static int slot_of(block_sector_t sector)
     return -1;
 }
 
-static int get_cache_slot(struct inode *inode, block_sector_t sector)
+// TODO clean this massive thing up
+static int get_cache_slot(block_sector_t sector, struct inode *inode, bool not_read_ahead)
 {
     // If the sector is already cached in, just return it  
     int new_slot_try1 = slot_of(sector);
@@ -221,7 +282,7 @@ static int get_cache_slot(struct inode *inode, block_sector_t sector)
 
     // Otherwise we're free to read in the sector
     int new_slot = evict_slot();
-    read_into_slot(new_slot, inode, sector);
+    read_into_slot(new_slot, sector);
     // Now remove elem from caching_in_list and wake up everyone that was conditioned on it
     lock_acquire(&caching_in_list_lock);
     elem->slot = new_slot;
@@ -231,6 +292,18 @@ static int get_cache_slot(struct inode *inode, block_sector_t sector)
     list_remove(&elem->elem);
     lock_release(&caching_in_list_lock);
     free(elem);
+
+    // Also, add next slot to read_ahead_list
+    block_sector_t last_sector = byte_to_sector(inode, inode_length(inode));
+    if (not_read_ahead && sector < last_sector)
+    {
+        read_ahead_elem *ra_elem = malloc(sizeof(read_ahead_elem));
+        ra_elem->sector = sector + 1;
+        ra_elem->inode = inode;
+        lock_acquire(&read_ahead_lock);
+        list_push_back(&read_ahead_list, &ra_elem->elem);
+        lock_release(&read_ahead_lock);
+    }
     return new_slot;
 }
 
@@ -252,7 +325,7 @@ off_t cache_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
         block_sector_t sector_idx = byte_to_sector (inode, offset);
         int sector_ofs = offset % BLOCK_SECTOR_SIZE;
         /* The cached data for the sector to read */
-        int slot = get_cache_slot(inode, sector_idx);
+        int slot = get_cache_slot(sector_idx, inode, true);
         cache_v[slot].last_used = timer_ticks();
 
         /* Bytes left in inode, bytes left in sector, lesser of the two. */
@@ -298,7 +371,7 @@ off_t cache_write_at(struct inode *inode, const void *buffer_, off_t size, off_t
         block_sector_t sector_idx = byte_to_sector(inode, offset);
         int sector_ofs = offset % BLOCK_SECTOR_SIZE;
         /* The cached data for the sector to read */
-        int slot = get_cache_slot(inode, sector_idx);
+        int slot = get_cache_slot(sector_idx, inode, true);
         cache_v[slot].last_used = timer_ticks();
 
         /* Bytes left in inode, bytes left in sector, lesser of the two. */
