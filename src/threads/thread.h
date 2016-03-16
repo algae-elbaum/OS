@@ -9,6 +9,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
+
 
 #define MAX_FILES 16 // Arbitrary limit on number of open files
 
@@ -115,6 +117,12 @@ struct thread {
     bool used;                          // If we have already been reaped
     tid_t blocked_on; // if we are blocked on a child, this is what it is. err its tid
     int exit_val; // This is the value that we are on exit.
+
+    // For exec-ing
+    struct lock exec_lock;
+    struct condition exec_cond;
+    bool exec_success;
+
     /**@}*/
 
 #ifdef USERPROG

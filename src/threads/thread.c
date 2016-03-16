@@ -9,7 +9,6 @@
 #include "threads/intr-stubs.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
-#include "threads/synch.h"
 #include "threads/vaddr.h"
 #ifdef USERPROG
 #include "userprog/process.h"
@@ -293,7 +292,6 @@ void thread_exit(void) {
            }
          }
 
-         curr->used = 0;
          curr->completed = 1;
         
         // Hey lets wake up parent if it was blocked on me. yayyyy
@@ -451,6 +449,10 @@ static void init_thread(struct thread *t, const char *name, int priority) {
     strlcpy(t->name, name, sizeof t->name);
     t->stack = (uint8_t *) t + PGSIZE;
     t->priority = priority;
+    t->used = false;
+    lock_init(&t->exec_lock);
+    cond_init(&t->exec_cond);
+
     t->magic = THREAD_MAGIC;
     list_init(&(t->children));
 

@@ -26,17 +26,31 @@ static void * check_and_convert_ptr(const void *ptr);
 
 static bool is_white_space(char input)
 {
-   return (input == '\0' || input == '\r' || input == '\n');
+   return (input == ' ' || input == '\0' || input == '\r' || input == '\n');
 }
 
 static bool is_valid_filename(const char *file)
 {
     return file != NULL
-        && file[0] != '\0'
+        && !is_white_space(file[0])
         && strlen(file) < 15
-        && strlen(file) > 0
-        && !is_white_space(file[0]);
+        && strlen(file) > 0;
 }
+
+static bool is_valid_command(const char *command)
+{
+
+    if (command != NULL)
+    {
+        int file_len = 0;
+        while (!is_white_space(command[file_len]))
+            file_len ++;
+
+        return file_len < 15 && file_len > 0;
+    }
+    return false;
+}
+
 
 // check whether a passed in pointer is valid, return correct address
 // currently doing it the slower way, will attempt to implemenent 2nd way
@@ -77,16 +91,25 @@ static void syscall_exit(int status)
     // We set up the DYING vs WAITING in thread_exit
     thread_exit();
 }
-static void syscall_exec(char * name)
+static tid_t syscall_exec(char * command)
 {
-    if (is_valid_filename(name))
+    if (is_valid_command(command))
     {
-        process_execute(name);
+        tid_t tid = process_execute(command);
+        // Wait and see if the exec worked
+        struct thread *curr = thread_current();
+        lock_acquire(&curr->exec_lock);
+        cond_wait(&curr->exec_cond, &curr->exec_lock);
+        lock_release(&curr->exec_lock);
+        if (curr->exec_success)
+            return tid;
+        else
+            return -1;
     }
     else
     {
         syscall_exit(-1);
-    }
+    } 
 }
 static bool syscall_create(const char * file, unsigned size)
 {
@@ -270,11 +293,11 @@ static void syscall_handler(struct intr_frame *f) {
             syscall_exit(*arg0);
             break;
         case  SYS_EXEC:                   /*!< Start another process. */
-            syscall_exec((char *) check_and_convert_ptr((char *) *arg0));
+            f->eax = syscall_exec((char *) check_and_convert_ptr((char *) *arg0));
             break;
         case  SYS_WAIT:                   /*!< Wait for a child process to die. */
             // process wait
-            syscall_wait((int) *arg0);
+            f->eax = syscall_wait((int) *arg0);
             break;
         case  SYS_CREATE:                 /*!< Create a file. */
             lock_acquire(&filesys_lock);
@@ -297,14 +320,10 @@ static void syscall_handler(struct intr_frame *f) {
             lock_release(&filesys_lock);
             break;
         case  SYS_READ:                   /*!< Read from a file. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_read(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
-            lock_release(&filesys_lock);
             break;
         case  SYS_WRITE:                  /*!< Write to a file. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_write(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
-            lock_release(&filesys_lock);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
             lock_acquire(&filesys_lock);

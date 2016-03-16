@@ -106,12 +106,31 @@ static void start_process(void *cmd_) {  // Why does this take a void *?
     if_.eflags = FLAG_IF | FLAG_MBS;
     success = load(token, &if_.eip, &if_.esp);
 
+    struct thread *curr = thread_current();
     /* If load failed, quit. */
     if (!success) 
     {
+        // Give the execing parent the bad news...
+        if (curr->parent != NULL)
+        {
+            curr->parent->exec_success = false;
+            lock_acquire(&curr->parent->exec_lock);
+            cond_signal(&curr->parent->exec_cond, &curr->parent->exec_lock);
+            lock_release(&curr->parent->exec_lock);
+        }
         palloc_free_page(cmd);
+        curr->exit_val = -1;
         thread_exit();
     }
+    // Wake up parent and tell it the good news: loading succeeded!
+    if (curr->parent != NULL)
+    {
+        curr->parent->exec_success = true;
+        lock_acquire(&curr->parent->exec_lock);
+        cond_signal(&curr->parent->exec_cond, &curr->parent->exec_lock);
+        lock_release(&curr->parent->exec_lock);
+    }
+
     // Time to keep tokenizing and smacking everything into the user prog's stack
     char * args_ptrs[cmd_len * sizeof(char *)]; // Hacky way of remembering all the pointers we'll
                                                 // want without dynamic memory
@@ -200,10 +219,6 @@ int process_wait(tid_t child_tid) {
     // We also know that the tid must be valid because all children
     // must have valid tids to have existed in the first place.
 
-    if (f->completed)
-    {
-        return f->status;
-    }
     // If we are used, then fail.
     if (f->used)
     {
@@ -213,12 +228,16 @@ int process_wait(tid_t child_tid) {
     {
         f->used = 1;
     }
+    if (f->completed)
+    {
+        return f->exit_val;
+    }
 
     // If it isn't completed, then we need to wait for it.
     curr->blocked_on = f->tid;
     intr_disable();
     thread_block();
-    return f->status;
+    return f->exit_val;
 }
 
 /*! Free the current process's resources. */
