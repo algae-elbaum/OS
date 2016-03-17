@@ -26,6 +26,11 @@ None except for our few hour micro extension
 >> If you have any preliminary comments on your submission, notes for the
 >> TAs, or extra credit, please give them here.
 
+Note, we have segfaults coming from a call to free and a call to dir_close.
+We shouldn't figure out a way to get rid of this. However, we did have some
+tests passing in 0a99... Somewhere along the line the extra features we were adding
+killed them. :(
+
 >> Please cite any offline or online sources you consulted while
 >> preparing your submission, other than the Pintos documentation, course
 >> text, lecture notes, and course instructors.
@@ -169,10 +174,14 @@ reported failure
 >> should succeed, as should only one of two simultaneous attempts to
 >> create a file with the same name, and so on.
 
+We didn't get far enough to deal with this problem.
+
 >> B5: Does your implementation allow a directory to be removed if it
 >> is open by a process or if it is in use as a process's current
 >> working directory?  If so, what happens to that process's future
 >> file system operations?  If not, how do you prevent it?
+
+We didn't get far enough to deal with this problem.
 
 ---- RATIONALE ----
 
