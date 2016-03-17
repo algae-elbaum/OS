@@ -119,17 +119,17 @@ struct inode * inode_open(block_sector_t sector) {
     struct inode *inode;
 
     /* Check whether this inode is already open. */
-    rw_acquire_read(&open_inodes_rw_lock);
+    // rw_acquire_read(&open_inodes_rw_lock);
     for (e = list_begin(&open_inodes); e != list_end(&open_inodes);
          e = list_next(e)) {
         inode = list_entry(e, struct inode, elem);
         if (inode->sector == sector) {
             inode_reopen(inode);
-            rw_release_read(&open_inodes_rw_lock);
+            // rw_release_read(&open_inodes_rw_lock);
             return inode; 
         }
     }
-    rw_release_read(&open_inodes_rw_lock);
+    // rw_release_read(&open_inodes_rw_lock);
 
     /* Allocate memory. */
     inode = malloc(sizeof *inode);
@@ -137,9 +137,9 @@ struct inode * inode_open(block_sector_t sector) {
         return NULL;
 
     /* Initialize. */
-    rw_acquire_write(&open_inodes_rw_lock);
+    // rw_acquire_write(&open_inodes_rw_lock);
     list_push_front(&open_inodes, &inode->elem);
-    rw_release_write(&open_inodes_rw_lock);
+    // rw_release_write(&open_inodes_rw_lock);
     inode->sector = sector;
     inode->open_cnt = 1;
     inode->deny_write_cnt = 0;
@@ -170,11 +170,11 @@ void inode_close(struct inode *inode) {
 
     /* Release resources if this was the last opener. */
     A_DEC(inode->open_cnt);
-    rw_acquire_write(&open_inodes_rw_lock);
+    // rw_acquire_write(&open_inodes_rw_lock);
     if (inode->open_cnt == 0) {
         /* Remove from inode list and release lock. */
         list_remove(&inode->elem);
-        rw_release_write(&open_inodes_rw_lock);
+        // rw_release_write(&open_inodes_rw_lock);
 
         /* Deallocate blocks if removed. */
         if (inode->removed) {
@@ -191,7 +191,7 @@ void inode_close(struct inode *inode) {
     }
     else
     {
-        rw_release_write(&open_inodes_rw_lock);
+        // rw_release_write(&open_inodes_rw_lock);
     }
 }
 

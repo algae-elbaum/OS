@@ -354,12 +354,16 @@ void rw_release_read(struct rw_lock * lock)
     lock->curr_readers --;
     if(lock->curr_readers == 0)
     {
+        lock_acquire(&lock->w_lock);
         cond_signal(&lock->w_cond, &lock->w_lock);
+        lock_release(&lock->w_lock);
     }
 }
 
 void rw_release_write(struct rw_lock* lock)
 {
     lock_release(&lock->w_lock);
+    lock_acquire(&lock->r_lock);
     cond_broadcast(&lock->r_cond, &lock->r_lock);
+    lock_release(&lock->r_lock);
 }
