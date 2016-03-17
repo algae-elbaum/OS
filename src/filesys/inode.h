@@ -42,9 +42,9 @@ void inode_deny_write(struct inode *);
 void inode_allow_write(struct inode *);
 off_t inode_length(const struct inode *);
 
-block_sector_t byte_to_sector(const struct inode *inode, off_t pos);
+block_sector_t byte_to_sector(struct inode *inode, off_t  byte);
 bool writes_forbidden(const struct inode *inode);
 
-block_sector_t num_to_sec(const struct inode_disk_root *root, int sec_num);
+block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num);
 
 #endif /* filesys/inode.h */

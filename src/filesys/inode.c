@@ -33,28 +33,28 @@ struct inode {
 /*! Returns the block device sector that contains byte offset POS
     within INODE.
     */
-block_sector_t byte_to_sector(const struct inode *inode, off_t byte) {
+block_sector_t byte_to_sector(struct inode *inode, off_t byte) {
     ASSERT(inode != NULL);
     int sec = byte / BLOCK_SECTOR_SIZE;
-    return num_to_sec(&inode->data, sec);
+    return *num_to_sec(&inode->data, sec);
 }
 
-block_sector_t num_to_sec(const struct inode_disk_root *root, int sec_num)
+block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num)
 {
     int temp1;
     if(sec_num < 100)
-        return root->sectors[sec_num];
+        return &root->sectors[sec_num];
     if(sec_num < 100 + 25*128)
     {
         sec_num -= 100;
         temp1 = sec_num / 128;
-        return root->twos[temp1]->sectors[sec_num - 128*temp1];
+        return &root->twos[temp1]->sectors[sec_num - 128*temp1];
     }
     else
     {
         sec_num -= (100 + 25*128);
         temp1 = sec_num / 512;
-        return root->one->twos[temp1]->sectors[sec_num - 512*temp1];
+        return &root->one->twos[temp1]->sectors[sec_num - 512*temp1];
     }
 }
 
@@ -73,6 +73,7 @@ void inode_init(void) {
     list_init(&open_inodes);
     rw_init(&open_inodes_rw_lock);
 }
+
 
 /*! Initializes an inode with LENGTH bytes of data and
     writes the new inode to sector SECTOR on the file system
@@ -94,14 +95,33 @@ bool inode_create(block_sector_t sector, off_t length) {
         size_t sectors = bytes_to_sectors(length);
         root->length = length;
         root->magic = INODE_MAGIC;
-        if (free_map_allocate(sectors, &root->sectors[0])) {
+        bool all_good = true;
+        size_t i;
+        block_sector_t *sec = NULL;
+        for(i = 0; i < sectors; i++)
+        {
+            if(! free_map_allocate(1, sec))
+            {
+                all_good = false;
+                break;
+            }
+            *num_to_sec(root, i) = *sec;
+        }
+        if(! all_good)
+        {
+            i++;
+            for(; i > 0; i --)
+            {
+                free_map_release(*num_to_sec(root,i-1), 1);
+            }
+        }
+        if (all_good) {
             block_write(fs_device, sector, root);
             if (sectors > 0) {
                 static char zeros[BLOCK_SECTOR_SIZE];
-                size_t i;
                 for (i = 0; i < sectors; i++)
                 {
-                    block_write(fs_device, num_to_sec(root, i), zeros);
+                    block_write(fs_device, *num_to_sec(root, i), zeros);
                 }
             }
             success = true; 
@@ -184,7 +204,7 @@ void inode_close(struct inode *inode) {
             int i;
             for (i = 0; i < inode->data.length; i ++)
             {
-                free_map_release(num_to_sec(&inode->data, i), 1);
+                free_map_release(*num_to_sec(&inode->data, i), 1);
             }
             free(inode); 
         }
