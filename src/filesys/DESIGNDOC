@@ -152,6 +152,16 @@ system to be able to exist. This system is a good compromise.
 >> B2: Describe your code for traversing a user-specified path.  How
 >> do traversals of absolute and relative paths differ?
 
+For the sake of getting anything done at all we didn't implement "." or ".."
+So the difference between traversing a relative path and an absolute path
+is that for absolute paths we start with the root directory and for relative
+paths we start with the current directory. Once the start point is established,
+we go through the path token by token (tokenized on "/"). At each token we look
+for the token in the current directory. If it doesn't exist we close the current
+directory and return false. Otherwise we close the current directory and open the
+found directory. At the end we've reached the desired directory or else have
+reported failure 
+
 ---- SYNCHRONIZATION ----
 
 >> B4: How do you prevent races on directory entries?  For example,
