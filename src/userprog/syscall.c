@@ -374,9 +374,7 @@ static void syscall_handler(struct intr_frame *f) {
             lock_release(&filesys_lock);
             break;
         case  SYS_FILESIZE:               /*!< Obtain a file's size. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_filesize(*arg0);
-            lock_release(&filesys_lock);
             break;
         case  SYS_READ:                   /*!< Read from a file. */
             f->eax = syscall_read(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
@@ -385,14 +383,10 @@ static void syscall_handler(struct intr_frame *f) {
             f->eax = syscall_write(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
-            lock_acquire(&filesys_lock);
             syscall_seek(*arg0, *arg1);
-            lock_release(&filesys_lock);
             break;
         case  SYS_TELL:                   /*!< Report current position in a file. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_tell(*arg0);
-            lock_release(&filesys_lock);
             break;
         case  SYS_CLOSE:                  /*!< Close a file. */
             lock_acquire(&filesys_lock);
