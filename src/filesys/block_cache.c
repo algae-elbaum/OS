@@ -34,6 +34,9 @@ typedef struct cache_slot_v // v for volatile
 typedef struct cache_slot_nv // nv for not volatile
 {
     uint8_t data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
+    struct lock trying_to_evict_lock;  /* So that simultaneous evicts don't just block each other
+                                          until one gets far enough ahead (comment later describes
+                                          situation in more detail */
 } cache_slot_nv;
 
 // For the list of things being read into the cache. Used so no sector will be brought
@@ -79,6 +82,11 @@ void cache_init(void)
     lock_init(&caching_in_list_lock);
     list_init(&read_ahead_list);
     lock_init(&read_ahead_lock);
+    int i;
+    for (i = 0; i < NUM_SLOTS; i++)
+    {
+        lock_init(cache_nv[i].trying_to_evict_lock);
+    }
     thread_create("read-ahead", PRI_DEFAULT, cache_periodic_read_ahead, NULL);
     thread_create("flushing", PRI_DEFAULT, cache_periodic_flush, NULL);
 }
@@ -175,8 +183,9 @@ static void read_into_slot(int slot, block_sector_t sector)
 // trying_to_evict check until they get out of synch and one inc of
 // trying_to_evict happens early enough that the other call has yet
 // to hit the first if in the for.
-// It's a little bad, but doesn't seem like it should be too bad.
-// TODO deal with it using a trying_to_evict lock
+// trying_to_evict_lock means we avoid this problem. It does slow down
+// simultaneous evicts... but at least there's no chance of them chasing
+// each other around arbitrarily long
 static int find_slot_to_evict(void)
 {
     int64_t best_time = timer_ticks();
@@ -189,14 +198,23 @@ static int find_slot_to_evict(void)
         int i;
         for (i = 0; i < NUM_SLOTS; i++)
         {
+            lock_acquire(&cache_nv[i].trying_to_evict_lock);
             if (cache_v[i].in_use == 0 && cache_v[i].last_used < best_time 
                 && cache_v[i].trying_to_evict == 0)
             {
+                A_INC(cache_v[i].trying_to_evict); // Amazing                
+                lock_release(&cache_nv[i].trying_to_evict_lock);
                 if (best != -1)
+                {
                     A_DEC(cache_v[best].trying_to_evict); // Amazing
+                }
                 best = i;
-                A_INC(cache_v[best].trying_to_evict); // Amazing
-                best_time = cache_v[best].last_used;
+                best_time = cache_v[i].last_used;
+            }
+            else
+            {
+                // Else unlock so we don't double unlock
+                lock_release(&cache_nv[i].trying_to_evict_lock);
             }
         }
     }
