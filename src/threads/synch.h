@@ -44,6 +44,20 @@ void cond_wait(struct condition *, struct lock *);
 void cond_signal(struct condition *, struct lock *);
 void cond_broadcast(struct condition *, struct lock *);
 
+struct rw_lock {
+    struct condition r_cond;
+    struct condition w_cond;
+    struct lock r_lock;
+    struct lock w_lock;
+    int curr_readers;
+}
+
+void rw_init(struct rw_lock *);
+void rw_acquire_read(struct rw_lock *);
+void rw_acquire_write(struct rw_lock *);
+void rw_release_read(struct rw_lock *);
+void rw_release_write(struct rw_lock*);
+
 /*! Optimization barrier.
 
    The compiler will not reorder operations across an
