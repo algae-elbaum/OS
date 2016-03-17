@@ -103,15 +103,15 @@ bool inode_create(block_sector_t sector, off_t length) {
         root->magic = INODE_MAGIC;
         bool all_good = true;
         size_t i;
-        block_sector_t *sec = NULL;
+        block_sector_t sec;
         for(i = 0; i < sectors; i++)
         {
-            if(! free_map_allocate(1, sec))
+            if(! free_map_allocate(1, &sec))
             {
                 all_good = false;
                 break;
             }
-            *num_to_sec(root, i, true) = *sec;
+            *num_to_sec(root, i, true) = sec;
         }
         if(! all_good)
         {

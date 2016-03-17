@@ -263,13 +263,12 @@ struct map
 
 static bool syscall_chdir(const char *dir)
 {
-    #if 0
     // String parsing is a massive pain and there's no time to get it to work,
     // so I'm not implementing ".." or "."
     if (dir != NULL)
     {
         // current directory
-        struct dir *cdir = calloc(1, sizeof(*dir));
+        struct dir *cdir = NULL;
         struct thread *curr = thread_current();
         if (dir[0] == '/')
         {
@@ -285,32 +284,32 @@ static bool syscall_chdir(const char *dir)
         }
 
         char *token, *save_ptr;
-        struct dir *new_dir;
+        struct dir *new_dir = NULL;
 
-    // tokenize directory by /
-        for (token = strtok_r(dir, "/", &save_ptr); token != NULL;
+        // tokenize directory by /
+        char *dir_cpy = malloc(strlen(dir) + 1); // tokenized thing must not be const
+        strlcpy(dir_cpy, dir, strlen(dir) + 1);
+        for (token = strtok_r(dir_cpy, "/", &save_ptr); token != NULL;
          token = strtok_r(NULL, "/", &save_ptr))
         {
-            struct inode **ind;
+            struct inode *ind = NULL;
             // check if each tokem is in the current directory
-            bool find_dir;
-            find_dir = dir_lookup(cdir, token, ind);
+            bool find_dir = dir_lookup(cdir, token, &ind);
             if (find_dir == false)  // if false, bad path, return false
             {
                 return false;
                 
             }
-            // clsoe current directory, get the new directory that
+            // close current directory, get the new directory that
             // was looked up
             dir_close(cdir);
-            new_dir = dir_open(*ind);
+            new_dir = dir_open(ind);
         }
         // set current working dir to the new dir
         curr->cwd = new_dir;
 
         return true;
     }
-#endif
     return false;
 }
 
@@ -319,11 +318,11 @@ static bool syscall_mkdir (const char *dir)
     // check whether dir isn't null
     // Trace through the directory structure similarly to chdir, but stop before the last token
     // then create a directory named what the final token is in what curr_dir ended up being
-    #if 0
+    #if 1
     if (dir != NULL)
     {
-        // current directory
-        struct dir *cdir = calloc(1, sizeof(*dir));
+// current directory
+        struct dir *cdir = NULL;
         struct thread *curr = thread_current();
         if (dir[0] == '/')
         {
@@ -339,34 +338,38 @@ static bool syscall_mkdir (const char *dir)
         }
 
         char *token, *save_ptr;
-        struct dir *new_dir;
-        
-        for (token = strtok_r(dir, "/", &save_ptr); token != NULL; 
-            token = strtok_r(NULL, "/", &save_ptr))
+        struct dir *new_dir = NULL;
+
+        // tokenize directory by /
+        char *dir_cpy = malloc(strlen(dir) + 1); // tokenized thing must not be const
+        strlcpy(dir_cpy, dir, strlen(dir) + 1);
+        for (token = strtok_r(dir_cpy, "/", &save_ptr); token != NULL;
+         token = strtok_r(NULL, "/", &save_ptr))
         {
-            struct inode **ind;
+            // Check if we're at the last token
+            char *save_ptr2;
+            save_ptr2 = save_ptr;
+            if (strtok_r(NULL, "/", &save_ptr2) == NULL)
+            {
+                // if the next token is null, the current token is the last one
+                // so we want to break here
+                break;
+            }
+            struct inode *ind = NULL;
             // check if each tokem is in the current directory
-            bool find_dir;
-            find_dir = dir_lookup(cdir, token, ind);
+            bool find_dir = dir_lookup(cdir, token, &ind);
             if (find_dir == false) // bad path, return false
             {
                 return false;
             }
 
             dir_close(cdir);
-            new_dir = dir_open(*ind); // open a new dir at this inode
-
-            char *save_ptr2 = save_ptr;
-            token = strtok_r(dir, "/", &save_ptr2);
-            if (token == NULL)
-            {
-                // if the next pointer is null, the current pointer is the last one
-                // so we want to break here
-                break;
-            }
+            new_dir = dir_open(ind); // open a new dir at this inode
         }
         // create new dir at that sector, starting the size at 0
-        dir_create(byte_to_sector(*(new_dir->inode), new_dir->pos), 0);
+        // TODO I don't think this is the sector we want, and we definitely don't
+        //      have access to those fields nicely. Need to figure out the right sector
+        // dir_create(byte_to_sector(*(new_dir->inode), new_dir->pos), 0);
         return true;
     }
  #endif
@@ -413,13 +416,16 @@ static bool syscall_isdir (int fd)
     return false;
 }
 
-static int syscall_inumber (int fd)
+static block_sector_t syscall_inumber (int fd)
 {
-    #if 0
     // get sector number of inode associated with fd dir
-    return fd->inode->sector;
-    #endif
-    return false;
+    if (check_fd(fd))
+    {
+        struct inode *inode = file_get_inode(thread_current()->open_files[fd]);
+        return inode_get_inumber(inode);
+    }
+    syscall_exit(-1);
+    return -1; // compiler pls
 }
 
 
