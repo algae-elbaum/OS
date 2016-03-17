@@ -15,6 +15,8 @@
 //#include "threads/pte.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
+#include "filesys/directory.h"
+#include "lib/string.h"
 
 struct lock filesys_lock;
 
@@ -264,15 +266,46 @@ static bool syscall_chdir(const char *dir)
     // so I'm not implementing ".." or "."
     if (dir != NULL)
     {
+        // current directory
+        struct dir *cdir = calloc(1, sizeof(*cdir));
         struct thread *curr = thread_current();
         if (dir[0] == '/')
         {
+            // set current directory to root directory
+            cdir = dir_open_root();
             // curr dir = open root
         }
         else
         {
+            // set directory to current working directory
+            cdir = curr->cwd;
             // curr dir = curr->cwd
         }
+
+        char *token, *save_ptr;
+
+    // tokenize directory by /
+        for (token = strtok_r(dir, "/", &save_ptr); token != NULL;
+         token = strtok_r(NULL, "/", &save_ptr))
+        {
+            struct dir_entry *ep;
+            // check if each tokem is in the current directory
+            bool find_dir = lookup(cdir, token, ep, NULL);
+            if (find_dir == false) // bad path, return false
+            {
+                return false;
+            }
+            else
+            {   // clsoe current directory, get the new directory that
+                // was looked up
+                dir_close(cdir);
+                struct inode *ind = inode_open(ep->inode_sector);
+                struct dir *new_dir = dir_open(ind);
+            }
+        }
+        // set current working dir to the new dir
+        curr->cwd = new_dir;
+
         // Trace down the directory structure
         /*  Something like:
         tokenize dir delimited by "/"
@@ -287,6 +320,7 @@ static bool syscall_chdir(const char *dir)
         */
         return true;
     }
+
     return false;
 }
 
@@ -374,9 +408,7 @@ static void syscall_handler(struct intr_frame *f) {
             lock_release(&filesys_lock);
             break;
         case  SYS_FILESIZE:               /*!< Obtain a file's size. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_filesize(*arg0);
-            lock_release(&filesys_lock);
             break;
         case  SYS_READ:                   /*!< Read from a file. */
             f->eax = syscall_read(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
@@ -385,19 +417,13 @@ static void syscall_handler(struct intr_frame *f) {
             f->eax = syscall_write(*arg0, check_and_convert_ptr((void *) *arg1), *arg2);
             break;
         case  SYS_SEEK:                   /*!< Change position in a file. */
-            lock_acquire(&filesys_lock);
             syscall_seek(*arg0, *arg1);
-            lock_release(&filesys_lock);
             break;
         case  SYS_TELL:                   /*!< Report current position in a file. */
-            lock_acquire(&filesys_lock);
             f->eax = syscall_tell(*arg0);
-            lock_release(&filesys_lock);
             break;
         case  SYS_CLOSE:                  /*!< Close a file. */
-            lock_acquire(&filesys_lock);
             syscall_close(*arg0);
-            lock_release(&filesys_lock);
             break;
         // case  SYS_MMAP:                   /*!< Map a file into memory. */
         //     f->eax = syscall_mmap(*arg0, check_and_convert_ptr((void *) *arg1));

@@ -120,6 +120,8 @@ off_t file_length(struct file *file) {
 void file_seek(struct file *file, off_t new_pos) {
     ASSERT(file != NULL);
     ASSERT(new_pos >= 0);
+    // Assignment to aligned values should be atomic. I think gcc should be
+    // smart enough to keep everything aligned
     file->pos = new_pos;
 }
 

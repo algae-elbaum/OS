@@ -6,9 +6,35 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+
+#define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing (atomically increment)
+#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomically decrement)
+
+/* Root layer inode. Points to level one or two or disk */
+struct inode_disk_root {
+    off_t length;                       /*!< File size in bytes. */
+    unsigned magic;                     /*!< Magic number. */
+    block_sector_t *sectors[100];
+    inode_disk_two *twos[25];
+    inode_disk_one * one;
+};
+/* First layer inode. It comes from root and points to level two */
+struct inode_disk_one {
+    // Pointers shouldn't be larger than 1 byte, so we can point to
+    // 512 level two inodes. Since each of those is 64kB, a level one
+    // supports 32 MB.
+    inode_disk_two *twos[BLOCK_SECTOR_SIZE / sizeof(inode_disk_two *)];
+};
+/* Second layer inode. Comes from level one or root and points to disk */
+struct inode_disk_two {
+    // We want to store an array of sector numbers and max out how many we have
+    // This is 128 sectors. Which is 64 kB.
+    block_sector_t sectors[BLOCK_SECTOR_SIZE / sizeof(block_sector_t)];
+};
 
 /*! Returns the number of sectors to allocate for an inode SIZE
     bytes long. */
@@ -62,10 +88,12 @@ bool writes_forbidden(const struct inode *inode)
 /*! List of open inodes, so that opening a single inode twice
     returns the same `struct inode'. */
 static struct list open_inodes;
+static struct rw_lock open_inodes_rw_lock;
 
 /*! Initializes the inode module. */
 void inode_init(void) {
     list_init(&open_inodes);
+    rw_init(&open_inodes_rw_lock);
 }
 
 /*! Initializes an inode with LENGTH bytes of data and
@@ -113,14 +141,17 @@ struct inode * inode_open(block_sector_t sector) {
     struct inode *inode;
 
     /* Check whether this inode is already open. */
+    rw_acquire_read(&open_inodes_rw_lock);
     for (e = list_begin(&open_inodes); e != list_end(&open_inodes);
          e = list_next(e)) {
         inode = list_entry(e, struct inode, elem);
         if (inode->sector == sector) {
             inode_reopen(inode);
+            rw_release_read(&open_inodes_rw_lock);
             return inode; 
         }
     }
+    rw_release_read(&open_inodes_rw_lock);
 
     /* Allocate memory. */
     inode = malloc(sizeof *inode);
@@ -128,7 +159,9 @@ struct inode * inode_open(block_sector_t sector) {
         return NULL;
 
     /* Initialize. */
+    rw_acquire_write(&open_inodes_rw_lock);
     list_push_front(&open_inodes, &inode->elem);
+    rw_release_write(&open_inodes_rw_lock);
     inode->sector = sector;
     inode->open_cnt = 1;
     inode->deny_write_cnt = 0;
@@ -140,7 +173,7 @@ struct inode * inode_open(block_sector_t sector) {
 /*! Reopens and returns INODE. */
 struct inode * inode_reopen(struct inode *inode) {
     if (inode != NULL)
-        inode->open_cnt++;
+        A_INC(inode->open_cnt);
     return inode;
 }
 
@@ -158,10 +191,11 @@ void inode_close(struct inode *inode) {
         return;
 
     /* Release resources if this was the last opener. */
-    if (--inode->open_cnt == 0) {
+    A_DEC(inode->open_cnt);
+    if (inode->open_cnt == 0) {
         /* Remove from inode list and release lock. */
         list_remove(&inode->elem);
- 
+
         /* Deallocate blocks if removed. */
         if (inode->removed) {
             free_map_release(inode->sector, 1);
@@ -172,9 +206,8 @@ void inode_close(struct inode *inode) {
             {
                 free_map_release(num_to_sec(&inode->data, i), 1);
             }
+            free(inode); 
         }
-
-        free(inode); 
     }
 }
 
@@ -188,7 +221,7 @@ void inode_remove(struct inode *inode) {
 /*! Disables writes to INODE.
     May be called at most once per inode opener. */
 void inode_deny_write (struct inode *inode) {
-    inode->deny_write_cnt++;
+    A_INC(inode->deny_write_cnt);
     ASSERT(inode->deny_write_cnt <= inode->open_cnt);
 }
 
