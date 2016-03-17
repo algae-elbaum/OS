@@ -10,28 +10,6 @@
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
-/* Root layer inode. Points to level one or two or disk */
-struct inode_disk_root {
-    off_t length;                       /*!< File size in bytes. */
-    unsigned magic;                     /*!< Magic number. */
-    block_sector_t *sectors[100];
-    inode_disk_two *twos[25];
-    inode_disk_one * one;
-};
-/* First layer inode. It comes from root and points to level two */
-struct inode_disk_one {
-    // Pointers shouldn't be larger than 1 byte, so we can point to
-    // 512 level two inodes. Since each of those is 64kB, a level one
-    // supports 32 MB.
-    inode_disk_two *twos[BLOCK_SECTOR_SIZE / sizeof(inode_disk_two *)];
-};
-/* Second layer inode. Comes from level one or root and points to disk */
-struct inode_disk_two {
-    // We want to store an array of sector numbers and max out how many we have
-    // This is 128 sectors. Which is 64 kB.
-    block_sector_t sectors[BLOCK_SECTOR_SIZE / sizeof(block_sector_t)];
-};
-
 /*! Returns the number of sectors to allocate for an inode SIZE
     bytes long. */
 static inline size_t bytes_to_sectors(off_t size) {
@@ -51,20 +29,28 @@ struct inode {
 /*! Returns the block device sector that contains byte offset POS
     within INODE.
     */
-block_sector_t byte_to_sector(const struct inode *inode, off_t sec) {
+block_sector_t byte_to_sector(const struct inode *inode, off_t byte) {
     ASSERT(inode != NULL);
+    int sec = byte / BLOCK_SECTOR_SIZE;
+    return num_to_sec(&inode->data, sec);
+}
+
+block_sector_t num_to_sec(const struct inode_disk_root *root, int sec_num)
+{
     int temp1;
-    if(sec < 100)
-        return root->sectors[sec];
-    else if(sec >= 100 && sec < 100 + 25*128){
-        temp1 = (sec - 100)/128;
-        return root->twos[temp1]->sectors[(sec - 100) - temp1 * 128];
+    if(sec_num < 100)
+        return root->sectors[sec_num];
+    if(sec_num < 100 + 25*128)
+    {
+        sec_num -= 100;
+        temp1 = sec_num / 128;
+        return root->twos[temp1]->sectors[sec_num - 128*temp1];
     }
-    else {
-    // Well we need to use the doubly indirect inodes
-        sec -= 100+25*128;
-        temp1 = sec / 128;
-        return root->one->twos[temp1];
+    else
+    {
+        sec_num -= (100 + 25*128);
+        temp1 = sec_num / 512;
+        return root->one->twos[temp1]->sectors[sec_num - 512*temp1];
     }
 }
 
@@ -95,43 +81,28 @@ bool inode_create(block_sector_t sector, off_t length) {
 
     /* If this assertion fails, the inode structure is not exactly
        one sector in size, and you should fix that. */
-    ASSERT(sizeof *inode_disk_root == BLOCK_SECTOR_SIZE);
+    ASSERT(sizeof(struct inode_disk_root*) == BLOCK_SECTOR_SIZE);
 
-    root = calloc(1, sizeof *disk_inode_root);
+    root = calloc(1, sizeof(struct disk_inode_root*));
     if (root != NULL) {
         size_t sectors = bytes_to_sectors(length);
         root->length = length;
         root->magic = INODE_MAGIC;
-        if (free_map_allocate(sectors, &root->sectors[0]) {
+        if (free_map_allocate(sectors, &root->sectors[0])) {
             block_write(fs_device, sector, root);
             if (sectors > 0) {
                 static char zeros[BLOCK_SECTOR_SIZE];
                 size_t i;
                 for (i = 0; i < sectors; i++)
-                    block_write(fs_device, byte_to_sector(root, i), zeros);
+                {
+                    block_write(fs_device, num_to_sec(root, i), zeros);
+                }
             }
             success = true; 
         }
         free(root);
     }
     return success;
-}
-
-static void write_sector(disk_inode_root * root, int sec, void* buffer)
-{
-    int temp1;
-    if(sec < 100)
-        block_write(fs_device, root->sectors[sec], buffer);
-    else if(sec >= 100 && sec < 100 + 25*128){
-        temp1 = (sec - 100)/128;
-        block_write(fs_device, root->twos[temp1]->sectors[(sec - 100) - temp1 * 128], buffer);
-    }
-    else {
-    // Well we need to use the doubly indirect inodes
-        sec -= 100+25*128;
-        temp1 = sec / 128;
-        block_write(fs_device, root->one->twos[temp1], buffer);
-    }
 }
 
 /*! Reads an inode from SECTOR
@@ -194,8 +165,13 @@ void inode_close(struct inode *inode) {
         /* Deallocate blocks if removed. */
         if (inode->removed) {
             free_map_release(inode->sector, 1);
-            free_map_release(inode->data.start,
-                             bytes_to_sectors(inode->data.length)); 
+//            free_map_release(inode->data.start,
+  //                           bytes_to_sectors(inode->data.length)); 
+            int i;
+            for (i = 0; i < inode->data.length; i ++)
+            {
+                free_map_release(num_to_sec(&inode->data, i), 1);
+            }
         }
 
         free(inode); 

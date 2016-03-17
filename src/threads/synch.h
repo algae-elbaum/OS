@@ -50,7 +50,7 @@ struct rw_lock {
     struct lock r_lock;
     struct lock w_lock;
     int curr_readers;
-}
+};
 
 void rw_init(struct rw_lock *);
 void rw_acquire_read(struct rw_lock *);
