@@ -17,6 +17,7 @@
 #include "threads/vaddr.h"
 #include "filesys/directory.h"
 #include "lib/string.h"
+#include "filesys/inode.h"
 
 struct lock filesys_lock;
 
@@ -262,12 +263,13 @@ struct map
 
 static bool syscall_chdir(const char *dir)
 {
+    #if 0
     // String parsing is a massive pain and there's no time to get it to work,
     // so I'm not implementing ".." or "."
     if (dir != NULL)
     {
         // current directory
-        struct dir *cdir = calloc(1, sizeof(*cdir));
+        struct dir *cdir = calloc(1, sizeof(*dir));
         struct thread *curr = thread_current();
         if (dir[0] == '/')
         {
@@ -283,70 +285,140 @@ static bool syscall_chdir(const char *dir)
         }
 
         char *token, *save_ptr;
+        struct dir *new_dir;
 
     // tokenize directory by /
         for (token = strtok_r(dir, "/", &save_ptr); token != NULL;
          token = strtok_r(NULL, "/", &save_ptr))
         {
-            struct dir_entry *ep;
+            struct inode **ind;
             // check if each tokem is in the current directory
-            bool find_dir = lookup(cdir, token, ep, NULL);
-            if (find_dir == false) // bad path, return false
+            bool find_dir;
+            find_dir = dir_lookup(cdir, token, ind);
+            if (find_dir == false)  // if false, bad path, return false
             {
                 return false;
+                
             }
-            else
-            {   // clsoe current directory, get the new directory that
-                // was looked up
-                dir_close(cdir);
-                struct inode *ind = inode_open(ep->inode_sector);
-                struct dir *new_dir = dir_open(ind);
-            }
+            // clsoe current directory, get the new directory that
+            // was looked up
+            dir_close(cdir);
+            new_dir = dir_open(*ind);
         }
         // set current working dir to the new dir
         curr->cwd = new_dir;
 
-        // Trace down the directory structure
-        /*  Something like:
-        tokenize dir delimited by "/"
-        for token in tokens:
-            find directory named token in curr dir
-            if it's not found, it's a bad path so return false
-            close curr_dir
-            open found directory
-
-        now curr_dir is the directory referred to by dir
-        set curr->cwd = curr_dir
-        */
         return true;
     }
-
+#endif
     return false;
 }
 
 static bool syscall_mkdir (const char *dir)
 {
+    // check whether dir isn't null
     // Trace through the directory structure similarly to chdir, but stop before the last token
     // then create a directory named what the final token is in what curr_dir ended up being
+    #if 0
+    if (dir != NULL)
+    {
+        // current directory
+        struct dir *cdir = calloc(1, sizeof(*dir));
+        struct thread *curr = thread_current();
+        if (dir[0] == '/')
+        {
+            // set current directory to root directory
+            cdir = dir_open_root();
+            // curr dir = open root
+        }
+        else
+        {
+            // set directory to current working directory
+            cdir = curr->cwd;
+            // curr dir = curr->cwd
+        }
+
+        char *token, *save_ptr;
+        struct dir *new_dir;
+        
+        for (token = strtok_r(dir, "/", &save_ptr); token != NULL; 
+            token = strtok_r(NULL, "/", &save_ptr))
+        {
+            struct inode **ind;
+            // check if each tokem is in the current directory
+            bool find_dir;
+            find_dir = dir_lookup(cdir, token, ind);
+            if (find_dir == false) // bad path, return false
+            {
+                return false;
+            }
+
+            dir_close(cdir);
+            new_dir = dir_open(*ind); // open a new dir at this inode
+
+            char *save_ptr2 = save_ptr;
+            token = strtok_r(dir, "/", &save_ptr2);
+            if (token == NULL)
+            {
+                // if the next pointer is null, the current pointer is the last one
+                // so we want to break here
+                break;
+            }
+        }
+        // create new dir at that sector, starting the size at 0
+        dir_create(byte_to_sector(*(new_dir->inode), new_dir->pos), 0);
+        return true;
+    }
+ #endif
     return false;
 }
 
+// this seems to be exactly the same as dir_readdir
 static bool syscall_readdir (int fd, char *name)
 {
-    // There's dir_readdir. Probably pretty relevant to this
+    #if 0
+    if (dir_readdir(fd, name))
+    {
+        return true;
+    }
+    #endif
+
     return false;
 }
 
 static bool syscall_isdir (int fd)
 {
+    #if 0
     // trace through the directory structure like in chdir, but at the end don't do anything
     // other than return true or false
+    struct dir *cdir = calloc(1, sizeof(*dir));
+    struct thread *curr = thread_current();
+    char *token, *save_ptr;
+        
+    for (token = strtok_r(fd, "/", &save_ptr); token != NULL; 
+        token = strtok_r(NULL, "/", &save_ptr))
+    {
+        struct inode **ind;
+        // check if each tokem is in the current directory
+        bool find_dir;
+        find_dir = dir_lookup(cdir, token, ind);
+        if (find_dir == false) // bad path, return false
+        {
+            return false;
+        }
+        
+        return true;
+    }
+    #endif
     return false;
 }
 
 static int syscall_inumber (int fd)
 {
-    // dir_get_inode might be relevant to this. not really sure
+    #if 0
+    // get sector number of inode associated with fd dir
+    return fd->inode->sector;
+    #endif
     return false;
 }
 
