@@ -6,9 +6,13 @@
 #include "filesys/filesys.h"
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 /*! Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+
+#define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing (atomically increment)
+#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomically decrement)
 
 /* Root layer inode. Points to level one or two or disk */
 struct inode_disk_root {
@@ -76,10 +80,12 @@ bool writes_forbidden(const struct inode *inode)
 /*! List of open inodes, so that opening a single inode twice
     returns the same `struct inode'. */
 static struct list open_inodes;
+static struct rw_lock open_inodes_rw_lock;
 
 /*! Initializes the inode module. */
 void inode_init(void) {
     list_init(&open_inodes);
+    rw_init(&open_inodes_rw_lock);
 }
 
 /*! Initializes an inode with LENGTH bytes of data and
@@ -142,14 +148,17 @@ struct inode * inode_open(block_sector_t sector) {
     struct inode *inode;
 
     /* Check whether this inode is already open. */
+    rw_acquire_read(&open_inodes_rw_lock);
     for (e = list_begin(&open_inodes); e != list_end(&open_inodes);
          e = list_next(e)) {
         inode = list_entry(e, struct inode, elem);
         if (inode->sector == sector) {
             inode_reopen(inode);
+            rw_release_read(&open_inodes_rw_lock);
             return inode; 
         }
     }
+    rw_release_read(&open_inodes_rw_lock);
 
     /* Allocate memory. */
     inode = malloc(sizeof *inode);
@@ -157,7 +166,9 @@ struct inode * inode_open(block_sector_t sector) {
         return NULL;
 
     /* Initialize. */
+    rw_acquire_write(&open_inodes_rw_lock);
     list_push_front(&open_inodes, &inode->elem);
+    rw_release_write(&open_inodes_rw_lock);
     inode->sector = sector;
     inode->open_cnt = 1;
     inode->deny_write_cnt = 0;
@@ -169,7 +180,7 @@ struct inode * inode_open(block_sector_t sector) {
 /*! Reopens and returns INODE. */
 struct inode * inode_reopen(struct inode *inode) {
     if (inode != NULL)
-        inode->open_cnt++;
+        A_INC(inode->open_cnt);
     return inode;
 }
 
@@ -187,18 +198,26 @@ void inode_close(struct inode *inode) {
         return;
 
     /* Release resources if this was the last opener. */
-    if (--inode->open_cnt == 0) {
+    A_DEC(inode->open_cnt);
+    if (inode->open_cnt == 0) {
         /* Remove from inode list and release lock. */
+        rw_acquire_write(&open_inodes_rw_lock);
         list_remove(&inode->elem);
- 
-        /* Deallocate blocks if removed. */
-        if (inode->removed) {
-            free_map_release(inode->sector, 1);
-            free_map_release(inode->data.start,
-                             bytes_to_sectors(inode->data.length)); 
-        }
+        rw_release_write(&open_inodes_rw_lock);
 
-        free(inode); 
+        // Make sure nothing incremented the open count while it was blocked
+        if (inode->open_cnt == 0)
+        {
+            /* Deallocate blocks if removed. */
+            if (inode->removed) 
+            {
+                free_map_release(inode->sector, 1);
+                free_map_release(inode->data.start,
+                                 bytes_to_sectors(inode->data.length)); 
+            }
+
+            free(inode); 
+        }
     }
 }
 
@@ -212,7 +231,7 @@ void inode_remove(struct inode *inode) {
 /*! Disables writes to INODE.
     May be called at most once per inode opener. */
 void inode_deny_write (struct inode *inode) {
-    inode->deny_write_cnt++;
+    A_INC(inode->deny_write_cnt);
     ASSERT(inode->deny_write_cnt <= inode->open_cnt);
 }
 

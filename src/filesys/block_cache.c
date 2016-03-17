@@ -16,7 +16,7 @@
 #define READ_AHEAD_FREQ 500 // Read ahead frequency in milliseconds
 #define FLUSH_FREQ 500 // Flush frequency in milliseconds
 #define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing (atomically increment)
-#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomicall decrement)
+#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomically decrement)
 
 typedef struct cache_slot_v // v for volatile
 {
