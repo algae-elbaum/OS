@@ -10,7 +10,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/synch.h"
-
+#include "filesys/directory.h"
 
 #define MAX_FILES 16 // Arbitrary limit on number of open files
 
@@ -92,6 +92,7 @@ typedef int tid_t;
    only because they are mutually exclusive: only a thread in the
    ready state is on the run queue, whereas only a thread in the
    blocked state is on a semaphore wait list.
+   *** now it has triple use: it's also for timer_blocked_list
 */
 struct thread {
     /*! Owned by thread.c. */
@@ -123,7 +124,9 @@ struct thread {
     struct condition exec_cond;
     bool exec_success;
 
-    int wake_me_up; // WAKE ME UP INSIDE
+    int wake_me_up; // WAKE ME UP INSIDE (for thread_sleep)
+
+    struct dir *cwd;  // Current working directory
 
     /**@}*/
 

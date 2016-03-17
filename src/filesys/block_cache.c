@@ -11,12 +11,12 @@
 #include "inode.h"
 #include "filesys.h"
 
-#define NUM_SLOTS 64
+#define NUM_SLOTS 64  // Number of cache slots
 // I have no idea what good values are for these next two #defines...
-#define READ_AHEAD_FREQ 500 // In milliseconds
-#define FLUSH_FREQ 500 // Also in milliseconds
-#define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing
-#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing
+#define READ_AHEAD_FREQ 500 // Read ahead frequency in milliseconds
+#define FLUSH_FREQ 500 // Flush frequency in milliseconds
+#define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing (atomically increment)
+#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomicall decrement)
 
 typedef struct cache_slot_v // v for volatile
 {
@@ -26,7 +26,7 @@ typedef struct cache_slot_v // v for volatile
     volatile int trying_to_evict;   /* So that nothing tries to use the block too
                                        late into eviction to stop the eviction */
     volatile bool touched;          // Whether the slot has ever been used
-    volatile bool dirty;
+    volatile bool dirty;            // Whether the sector is dirty
 } cache_slot_v;
 
 // Separate struct because volatility is apparently infectious
@@ -36,11 +36,12 @@ typedef struct cache_slot_nv // nv for not volatile
     uint8_t data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
 } cache_slot_nv;
 
-
+// For the list of things being read into the cache. Used so no sector will be brought
+// into the cache twice at once
 typedef struct caching_in_elem
 {
-    block_sector_t sector;
-    int slot;
+    block_sector_t sector; // The sector being brought in
+    int slot;       // The slot the sector is brought into
     struct list_elem elem;
     struct lock lock;
     struct condition cond;
@@ -49,21 +50,20 @@ typedef struct caching_in_elem
 static struct list caching_in_list;
 static struct lock caching_in_list_lock;
 
-static volatile cache_slot_v cache_v[NUM_SLOTS] = {{0}};;
+// Actual cache slots
+static volatile cache_slot_v cache_v[NUM_SLOTS] = {{0}};
 static cache_slot_nv cache_nv[NUM_SLOTS];
 
+// Element of the read ahead queue
 typedef struct read_ahead_elem
 {
-    block_sector_t sector;
-    struct inode *inode;
-    struct list_elem elem;
+    block_sector_t sector; // Sector to be read in
+    struct inode *inode;   // Inode of the sector
+    struct list_elem elem; 
 } read_ahead_elem;
 
 static struct list read_ahead_list;
 static struct lock read_ahead_lock;
-
-static tid_t read_ahead_tid;
-static tid_t flush_tid;
 
 static volatile block_sector_t free_slots = NUM_SLOTS;
 
@@ -79,8 +79,8 @@ void cache_init(void)
     lock_init(&caching_in_list_lock);
     list_init(&read_ahead_list);
     lock_init(&read_ahead_lock);
-    read_ahead_tid = thread_create("read-ahead", PRI_DEFAULT, cache_periodic_read_ahead, NULL);
-    flush_tid = thread_create("flushing", PRI_DEFAULT, cache_periodic_flush, NULL);
+    thread_create("read-ahead", PRI_DEFAULT, cache_periodic_read_ahead, NULL);
+    thread_create("flushing", PRI_DEFAULT, cache_periodic_flush, NULL);
 }
 
 void cache_done(void)
@@ -251,6 +251,18 @@ static int slot_of(block_sector_t sector)
 // TODO clean this massive thing up
 static int get_cache_slot(block_sector_t sector, struct inode *inode, bool not_read_ahead)
 {
+    // First, add next slot to read_ahead_list
+    block_sector_t last_sector = byte_to_sector(inode, inode_length(inode));
+    if (not_read_ahead && sector < last_sector)
+    {
+        read_ahead_elem *ra_elem = malloc(sizeof(read_ahead_elem));
+        ra_elem->sector = sector + 1;
+        ra_elem->inode = inode;
+        lock_acquire(&read_ahead_lock);
+        list_push_back(&read_ahead_list, &ra_elem->elem);
+        lock_release(&read_ahead_lock);
+    }
+
     // If the sector is already cached in, just return it  
     int new_slot_try1 = slot_of(sector);
     if (new_slot_try1 != -1)
@@ -321,17 +333,6 @@ static int get_cache_slot(block_sector_t sector, struct inode *inode, bool not_r
     lock_release(&caching_in_list_lock);
     free(elem);
 
-    // Also, add next slot to read_ahead_list
-    block_sector_t last_sector = byte_to_sector(inode, inode_length(inode));
-    if (not_read_ahead && sector < last_sector)
-    {
-        read_ahead_elem *ra_elem = malloc(sizeof(read_ahead_elem));
-        ra_elem->sector = sector + 1;
-        ra_elem->inode = inode;
-        lock_acquire(&read_ahead_lock);
-        list_push_back(&read_ahead_list, &ra_elem->elem);
-        lock_release(&read_ahead_lock);
-    }
     return new_slot;
 }
 

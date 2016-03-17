@@ -258,6 +258,65 @@ struct map
     struct list pages;
 };
 
+static bool syscall_chdir(const char *dir)
+{
+    // String parsing is a massive pain and there's no time to get it to work,
+    // so I'm not implementing ".." or "."
+    if (dir != NULL)
+    {
+        struct thread *curr = thread_current();
+        if (dir[0] == '/')
+        {
+            // curr dir = open root
+        }
+        else
+        {
+            // curr dir = curr->cwd
+        }
+        // Trace down the directory structure
+        /*  Something like:
+        tokenize dir delimited by "/"
+        for token in tokens:
+            find directory named token in curr dir
+            if it's not found, it's a bad path so return false
+            close curr_dir
+            open found directory
+
+        now curr_dir is the directory referred to by dir
+        set curr->cwd = curr_dir
+        */
+        return true;
+    }
+    return false;
+}
+
+static bool syscall_mkdir (const char *dir)
+{
+    // Trace through the directory structure similarly to chdir, but stop before the last token
+    // then create a directory named what the final token is in what curr_dir ended up being
+    return false;
+}
+
+static bool syscall_readdir (int fd, char *name)
+{
+    // There's dir_readdir. Probably pretty relevant to this
+    return false;
+}
+
+static bool syscall_isdir (int fd)
+{
+    // trace through the directory structure like in chdir, but at the end don't do anything
+    // other than return true or false
+    return false;
+}
+
+static int syscall_inumber (int fd)
+{
+    // dir_get_inode might be relevant to this. not really sure
+    return false;
+}
+
+
 static void syscall_handler(struct intr_frame *f) {
 
     long intr_num;
@@ -347,16 +406,21 @@ static void syscall_handler(struct intr_frame *f) {
         //     syscall_munmap(*arg0);
         //     break;
 
-        // case  SYS_CHDIR:                  /*!< Change the current directory. */
-        //     break;
-        // case  SYS_MKDIR:                  /* !< Create a directory. */
-        //     break;
-        // case  SYS_READDIR:                /*!< Reads a directory entry. */
-        //     break;
-        // case  SYS_ISDIR:                  /*!< Tests if a fd represents a directory. */
-        //     break;
-        // case  SYS_INUMBER:                 /*!< Returns the inode number for a fd. */
-        //     break;
+        case  SYS_CHDIR:                  /*!< Change the current directory. */
+            f->eax = syscall_chdir((char *) check_and_convert_ptr((char *) *arg0));
+            break;
+        case  SYS_MKDIR:                  /* !< Create a directory. */
+            f->eax = syscall_mkdir((char *) check_and_convert_ptr((char *) *arg0));
+            break;
+        case  SYS_READDIR:                /*!< Reads a directory entry. */
+            f->eax = syscall_readdir((int) *arg0, (char *) check_and_convert_ptr((char *) *arg1));
+            break;
+        case  SYS_ISDIR:                  /*!< Tests if a fd represents a directory. */
+            break;
+            f->eax = syscall_isdir((int) *arg0);
+        case  SYS_INUMBER:                 /*!< Returns the inode number for a fd. */
+            f->eax = syscall_inumber((int) *arg0);
+            break;
         default:
             syscall_exit(-1);
     }

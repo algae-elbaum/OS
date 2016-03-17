@@ -1,0 +1,261 @@
+       	       	     +-------------------------+
+                     |          CS 124         |
+                     | PROJECT 6: FILE SYSTEMS |
+                     |     DESIGN DOCUMENT     |
+                     +-------------------------+
+
+---- GROUP ----
+
+>> Fill in the names and email addresses of your group members.
+
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+FirstName LastName <email@domain.example>
+
+>> Specify how many late tokens you are using on this assignment:  
+
+>> What is the Git repository and commit hash for your submission?
+
+   Repository URL:  
+   commit ...
+
+---- PRELIMINARIES ----
+
+>> If you have any preliminary comments on your submission, notes for the
+>> TAs, or extra credit, please give them here.
+
+>> Please cite any offline or online sources you consulted while
+>> preparing your submission, other than the Pintos documentation, course
+>> text, lecture notes, and course instructors.
+
+		     INDEXED AND EXTENSIBLE FILES
+		     ============================
+
+---- DATA STRUCTURES ----
+
+>> A1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+>> A2: What is the maximum size of a file supported by your inode
+>> structure?  Show your work.
+
+---- SYNCHRONIZATION ----
+
+>> A3: Explain how your code avoids a race if two processes attempt to
+>> extend a file at the same time.
+
+>> A4: Suppose processes A and B both have file F open, both
+>> positioned at end-of-file.  If A reads and B writes F at the same
+>> time, A may read all, part, or none of what B writes.  However, A
+>> may not read data other than what B writes, e.g. if B writes
+>> nonzero data, A is not allowed to see all zeros.  Explain how your
+>> code avoids this race.
+
+>> A5: Explain how your synchronization design provides "fairness".
+>> File access is "fair" if readers cannot indefinitely block writers
+>> or vice versa.  That is, many processes reading from a file cannot
+>> prevent forever another process from writing the file, and many
+>> processes writing to a file cannot prevent another process forever
+>> from reading the file.
+
+---- RATIONALE ----
+
+>> A6: Is your inode structure a multilevel index?  If so, why did you
+>> choose this particular combination of direct, indirect, and doubly
+>> indirect blocks?  If not, why did you choose an alternative inode
+>> structure, and what advantages and disadvantages does your
+>> structure have, compared to a multilevel index?
+
+			    SUBDIRECTORIES
+			    ==============
+
+---- DATA STRUCTURES ----
+
+>> B1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+---- ALGORITHMS ----
+
+>> B2: Describe your code for traversing a user-specified path.  How
+>> do traversals of absolute and relative paths differ?
+
+---- SYNCHRONIZATION ----
+
+>> B4: How do you prevent races on directory entries?  For example,
+>> only one of two simultaneous attempts to remove a single file
+>> should succeed, as should only one of two simultaneous attempts to
+>> create a file with the same name, and so on.
+
+>> B5: Does your implementation allow a directory to be removed if it
+>> is open by a process or if it is in use as a process's current
+>> working directory?  If so, what happens to that process's future
+>> file system operations?  If not, how do you prevent it?
+
+---- RATIONALE ----
+
+>> B6: Explain why you chose to represent the current directory of a
+>> process the way you did.
+
+			     BUFFER CACHE
+			     ============
+
+---- DATA STRUCTURES ----
+
+>> C1: Copy here the declaration of each new or changed `struct' or
+>> `struct' member, global or static variable, `typedef', or
+>> enumeration.  Identify the purpose of each in 25 words or less.
+
+
+#define NUM_SLOTS 64  // Number of cache slots
+// I have no idea what good values are for these next two #defines...
+#define READ_AHEAD_FREQ 500 // Read ahead frequency in milliseconds
+#define FLUSH_FREQ 500 // Flush frequency in milliseconds
+#define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing (atomically increment)
+#define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomicall decrement)
+
+typedef struct cache_slot_v // v for volatile
+{
+    volatile block_sector_t sector; // Sector held in the slot         
+    volatile int in_use;            // Count processes using this entry
+    volatile int64_t last_used;     // Holds the tick when this was used last
+    volatile int trying_to_evict;   /* So that nothing tries to use the block too
+                                       late into eviction to stop the eviction */
+    volatile bool touched;          // Whether the slot has ever been used
+    volatile bool dirty;            // Whether the sector is dirty
+} cache_slot_v;
+
+// Separate struct because volatility is apparently infectious
+// For the first time in a long time I'm seriously annoyed with C
+typedef struct cache_slot_nv // nv for not volatile
+{
+    uint8_t data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
+} cache_slot_nv;
+
+// For the list of things being read into the cache. Used so no sector will be brought
+// into the cache twice at once
+typedef struct caching_in_elem
+{
+    block_sector_t sector; // The sector being brought in
+    int slot;       // The slot the sector is brought into
+    struct list_elem elem;
+    struct lock lock;
+    struct condition cond;
+} caching_in_elem;
+
+static struct list caching_in_list;
+static struct lock caching_in_list_lock;
+
+// Actual cache slots
+static volatile cache_slot_v cache_v[NUM_SLOTS] = {{0}};
+static cache_slot_nv cache_nv[NUM_SLOTS];
+
+// Element of the read ahead queue
+typedef struct read_ahead_elem
+{
+    block_sector_t sector; // Sector to be read in
+    struct inode *inode;   // Inode of the sector
+    struct list_elem elem; 
+} read_ahead_elem;
+
+static struct list read_ahead_list;
+static struct lock read_ahead_lock;
+
+static volatile block_sector_t free_slots = NUM_SLOTS;
+
+
+---- ALGORITHMS ----
+
+>> C2: Describe how your cache replacement algorithm chooses a cache
+>> block to evict.
+If there is an empty slot (can be the case when less than 64 different sectors
+have been accessed), then nothing is evicted and that slot is used. Otherwise,
+each cache slot keeps track the the tick when it was last accessed. So when
+finding a slot to evict, the code loops through the slots and looks for the
+slot last accessed furthest back in time that is also permitted to be evicted
+(ie not in use and not being evicted by someone else).
+
+>> C3: Describe your implementation of write-behind.
+There is a function that says while true sleep for FLUSH_FREQ and then loop 
+through all slots writing out all dirty ones. cache_init starts a thread that
+runs that function
+
+>> C4: Describe your implementation of read-ahead.
+When a sector is read in via normal access (ie not read-ahead), if the next sector
+is in the file then an element with that sector number is added to the read ahead 
+list. There is a function that says while true sleep for READ_AHEAD_FREQ and then 
+go through the read ahead list and read in the sector in each element as if it had 
+been accessed by a read or write, but with a flag that says to not add the next
+sector to the read ahead list. cache_init starts a thread that runs that function 
+
+---- SYNCHRONIZATION ----
+
+>> C5: When one process is actively reading or writing data in a
+>> buffer cache block, how are other processes prevented from evicting
+>> that block?
+Each slot has an in_use field. When a process needs to access a slot, it atomically
+increments that field, does its stuff, and then atomically decrements that field.
+Eviction is forbidden from choosing a slot with in_use greater than zero.
+
+>> C6: During the eviction of a block from the cache, how are other
+>> processes prevented from attempting to access the block?
+When the eviction policy finds a slot it wants to evict, it atomically increments
+the slot field trying_to_evict. Slot accesses are not allowed on slots with a
+trying_to_evict field greater than zero, and eviction is not allowed to evict
+a slot with a trying_to_evict field of greater than 1 (so that it doesn't evict
+a slot and then hand it out to two different sector accesses).
+If a slot access has started and then trying_to_evict is incremented, the slot
+access continues without having to worry because before actually evicting the
+slot, eviction will check that the slot isn't in use. Since the access would
+have incremented in_use, then the eviction doesn't actually go through.
+
+trying_to_evict is not reset until a new sector is read into the slot and 
+last_used is set to the current timer tick, so that eviction doesn't think
+it can evict a slot that was just evicted.
+
+---- RATIONALE ----
+
+>> C7: Describe a file workload likely to benefit from buffer caching,
+>> and workloads likely to benefit from read-ahead and write-behind.
+
+Buffer caching is useful when the same sector is accessed over and over again.
+If the sector is kept in cache, those accesses are faster than they would
+otherwise be. For example, I write to this text file every thirty seconds, so 
+my computer probably wants to keep it in cache to make writing faster.
+
+Read ahead is good for lots of sequential accesses. I'm not quite sure if
+this is a good example, but copying big files around might benefit from
+read ahead. If copying is slow enough, by the time it gets to the next sector
+the next sector will have already been read in. On the other hand, it seems
+like copying would be too fast to get much advantage from it.
+
+Write behind is good for not losing work when computers crash. It also helps
+with eviction if it writes out a sector, making the slot no longer dirty, so
+that when the slot is evicted then it doesn't need to waste time writing out
+the sector.
+
+			   SURVEY QUESTIONS
+			   ================
+
+Answering these questions is optional, but it will help us improve the
+course in future quarters.  Feel free to tell us anything you
+want--these questions are just to spur your thoughts.  You may also
+choose to respond anonymously in the feedback survey on the course
+website.
+
+>> In your opinion, was this assignment, or any one of the three problems
+>> in it, too easy or too hard?  Did it take too long or too little time?
+
+>> Did you find that working on a particular part of the assignment gave
+>> you greater insight into some aspect of OS design?
+
+>> Is there some particular fact or hint we should give students in
+>> future quarters to help them solve the problems?  Conversely, did you
+>> find any of our guidance to be misleading?
+
+>> Do you have any suggestions for the TAs to more effectively assist
+>> students in future quarters?
+
+>> Any other comments?
+
