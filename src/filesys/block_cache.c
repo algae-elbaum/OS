@@ -36,7 +36,7 @@ typedef struct cache_slot_nv // nv for not volatile
     uint8_t data[BLOCK_SECTOR_SIZE];  // Actual data (seems like it should be volatile, but memcpy...)
     struct lock trying_to_evict_lock;  /* So that simultaneous evicts don't just block each other
                                           until one gets far enough ahead (comment later describes
-                                          situation in more detail */
+                                          situation in a little more detail */
 } cache_slot_nv;
 
 // For the list of things being read into the cache. Used so no sector will be brought
@@ -85,7 +85,7 @@ void cache_init(void)
     int i;
     for (i = 0; i < NUM_SLOTS; i++)
     {
-        lock_init(cache_nv[i].trying_to_evict_lock);
+        lock_init(&cache_nv[i].trying_to_evict_lock);
     }
     thread_create("read-ahead", PRI_DEFAULT, cache_periodic_read_ahead, NULL);
     thread_create("flushing", PRI_DEFAULT, cache_periodic_flush, NULL);

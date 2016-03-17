@@ -14,28 +14,6 @@
 #define A_INC(X) {__sync_add_and_fetch (&(X), 1);};  // Amazing (atomically increment)
 #define A_DEC(X) {__sync_add_and_fetch (&(X), -1);}; // Amazing (atomically decrement)
 
-/* Root layer inode. Points to level one or two or disk */
-struct inode_disk_root {
-    off_t length;                       /*!< File size in bytes. */
-    unsigned magic;                     /*!< Magic number. */
-    block_sector_t *sectors[100];
-    inode_disk_two *twos[25];
-    inode_disk_one * one;
-};
-/* First layer inode. It comes from root and points to level two */
-struct inode_disk_one {
-    // Pointers shouldn't be larger than 1 byte, so we can point to
-    // 512 level two inodes. Since each of those is 64kB, a level one
-    // supports 32 MB.
-    inode_disk_two *twos[BLOCK_SECTOR_SIZE / sizeof(inode_disk_two *)];
-};
-/* Second layer inode. Comes from level one or root and points to disk */
-struct inode_disk_two {
-    // We want to store an array of sector numbers and max out how many we have
-    // This is 128 sectors. Which is 64 kB.
-    block_sector_t sectors[BLOCK_SECTOR_SIZE / sizeof(block_sector_t)];
-};
-
 /*! Returns the number of sectors to allocate for an inode SIZE
     bytes long. */
 static inline size_t bytes_to_sectors(off_t size) {
@@ -109,7 +87,7 @@ bool inode_create(block_sector_t sector, off_t length) {
 
     /* If this assertion fails, the inode structure is not exactly
        one sector in size, and you should fix that. */
-    ASSERT(sizeof(struct inode_disk_root*) == BLOCK_SECTOR_SIZE);
+    ASSERT(sizeof(struct inode_disk_root) == BLOCK_SECTOR_SIZE);
 
     root = calloc(1, sizeof(struct disk_inode_root*));
     if (root != NULL) {
@@ -192,9 +170,11 @@ void inode_close(struct inode *inode) {
 
     /* Release resources if this was the last opener. */
     A_DEC(inode->open_cnt);
+    rw_acquire_write(&open_inodes_rw_lock);
     if (inode->open_cnt == 0) {
         /* Remove from inode list and release lock. */
         list_remove(&inode->elem);
+        rw_release_write(&open_inodes_rw_lock);
 
         /* Deallocate blocks if removed. */
         if (inode->removed) {
@@ -208,6 +188,10 @@ void inode_close(struct inode *inode) {
             }
             free(inode); 
         }
+    }
+    else
+    {
+        rw_release_write(&open_inodes_rw_lock);
     }
 }
 
