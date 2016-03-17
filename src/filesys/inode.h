@@ -45,6 +45,6 @@ off_t inode_length(const struct inode *);
 block_sector_t byte_to_sector(struct inode *inode, off_t  byte);
 bool writes_forbidden(const struct inode *inode);
 
-block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num);
+block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num, bool write_flag);
 
 #endif /* filesys/inode.h */

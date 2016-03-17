@@ -36,10 +36,10 @@ struct inode {
 block_sector_t byte_to_sector(struct inode *inode, off_t byte) {
     ASSERT(inode != NULL);
     int sec = byte / BLOCK_SECTOR_SIZE;
-    return *num_to_sec(&inode->data, sec);
+    return *num_to_sec(&inode->data, sec, false);
 }
 
-block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num)
+block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num, bool write_flag)
 {
     int temp1;
     if(sec_num < 100)
@@ -48,12 +48,18 @@ block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num)
     {
         sec_num -= 100;
         temp1 = sec_num / 128;
+        if (write_flag && &root->twos[temp1]->sectors[sec_num - 128*temp1] == NULL)
+            root->twos[temp1] = malloc(sizeof(struct inode_disk_two));
         return &root->twos[temp1]->sectors[sec_num - 128*temp1];
     }
     else
     {
         sec_num -= (100 + 25*128);
         temp1 = sec_num / 512;
+        if(write_flag && &root->one == NULL)
+            root->one = malloc(sizeof(struct inode_disk_one));
+        if (write_flag && &root->one->twos[temp1]->sectors[sec_num - 512*temp1] == NULL)
+            root->one->twos[temp1] = malloc(sizeof(struct inode_disk_two));
         return &root->one->twos[temp1]->sectors[sec_num - 512*temp1];
     }
 }
@@ -105,14 +111,14 @@ bool inode_create(block_sector_t sector, off_t length) {
                 all_good = false;
                 break;
             }
-            *num_to_sec(root, i) = *sec;
+            *num_to_sec(root, i, true) = *sec;
         }
         if(! all_good)
         {
             i++;
             for(; i > 0; i --)
             {
-                free_map_release(*num_to_sec(root,i-1), 1);
+                free_map_release(*num_to_sec(root,i-1,false), 1);
             }
         }
         if (all_good) {
@@ -121,7 +127,7 @@ bool inode_create(block_sector_t sector, off_t length) {
                 static char zeros[BLOCK_SECTOR_SIZE];
                 for (i = 0; i < sectors; i++)
                 {
-                    block_write(fs_device, *num_to_sec(root, i), zeros);
+                    block_write(fs_device, *num_to_sec(root, i,true), zeros);
                 }
             }
             success = true; 
@@ -204,7 +210,7 @@ void inode_close(struct inode *inode) {
             int i;
             for (i = 0; i < inode->data.length; i ++)
             {
-                free_map_release(*num_to_sec(&inode->data, i), 1);
+                free_map_release(*num_to_sec(&inode->data, i,false), 1);
             }
             free(inode); 
         }
