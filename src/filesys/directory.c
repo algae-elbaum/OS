@@ -5,6 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "block/cache.h"
 
 /*! A directory. */
 struct dir {
@@ -79,7 +80,7 @@ static bool lookup(const struct dir *dir, const char *name,
     ASSERT(dir != NULL);
     ASSERT(name != NULL);
 
-    for (ofs = 0; inode_read_at(dir->inode, &e, sizeof(e), ofs) == sizeof(e);
+    for (ofs = 0; cache_read_at(dir->inode, &e, sizeof(e), ofs) == sizeof(e);
          ofs += sizeof(e)) {
         if (e.in_use && !strcmp(name, e.name)) {
             if (ep != NULL)
