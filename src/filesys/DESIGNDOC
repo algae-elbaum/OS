@@ -100,6 +100,11 @@ None except for our few hour micro extension
 >> B6: Explain why you chose to represent the current directory of a
 >> process the way you did.
 
+The current working directory is represented as an attribute of the thread
+because it makes the most sense to attach the thread to the directory it is
+operating in, so that you can get the current working directory of the current
+thread.
+
 			     BUFFER CACHE
 			     ============
 
