@@ -310,3 +310,56 @@ void cond_broadcast(struct condition *cond, struct lock *lock) {
         cond_signal(cond, lock);
 }
 
+/* Functions relating to Read-Write Locks */
+
+/* Initializes a RW-Lock by using the init functions of its consituent parts */
+void rw_init(struct rw_lock * lock)
+{
+    cond_init(lock->r_cond);
+    cond_init(lock->w_cond);
+    lock_init(lock->r_lock);
+    lock_init(lock->w_lock);
+    curr_readers = 0;
+}
+
+/* A thread that wants to read uses this function. It is exclusive with
+ * another thread writing, but not another thread reading. */
+void rw_acquire_read(struct rw_lock * lock)
+{
+    // We want to do a read after writes are done
+    lock_acquire(lock->r_lock);
+    lock_acquire(lock->w_lock);
+    if(list_empty(lock->w_cond->waiters))
+    {
+        // pass
+    }
+    else
+    {
+        cond_wait(lock->r_cond, lock->r_lock);
+    }
+    lock_release(lock->w_lock);
+    lock_release(lock->r_lock);
+    lock->curr_readers ++;
+}
+
+void rw_acquire_write(struct rw_lock * lock)
+{
+    lock_acquire(lock->w_lock);
+    if(lock->curr_readers == 0 && list_empty(lock->r_cond->waiters))
+    cond_wait(lock->w_cond, lock->w_lock);
+}
+
+void rw_release_read(struct rw_lock * lock)
+{
+    lock->curr_readers --;
+    if(curr_readers == 0)
+    {
+        cond_signal(lock->w_cond);
+    }
+}
+
+void rw_release_write(struct rw_lock* lock)
+{
+    lock_release(lock->w_lock);
+    cond_broadcast(lock->r_cond, lock->r_lock);
+}

@@ -375,14 +375,13 @@ off_t cache_read_at(struct inode *inode, void *buffer_, off_t size, off_t offset
             memcpy(buffer + bytes_read, cache_nv[slot].data + sector_ofs, chunk_size);
         }
         A_DEC(cache_v[slot].in_use);
-      
+
         /* Advance. */
         size -= chunk_size;
         offset += chunk_size;
         bytes_read += chunk_size;
     }
-    
-    return bytes_read;   
+    return bytes_read;
 }
 
 
