@@ -408,10 +408,20 @@ off_t cache_write_at(struct inode *inode, const void *buffer_, off_t size, off_t
 {
     const uint8_t *buffer = buffer_;
     off_t bytes_written = 0;
+    int i;
 
     if (writes_forbidden(inode))
         return 0;
-
+    // Now we extend the length so we don't prematurely end the write when the old
+    // file length is encountered.
+    if(size + offset > inode_length(inode))
+    {
+        inode->data.length = size + offset;
+        for(i = offset; i < size + offset; i ++)
+        {
+            num_to_sec(&inode->data, offset, true);
+        }
+    }
     while (size > 0) {
         /* Sector to write, starting byte offset within sector. */
         block_sector_t sector_idx = byte_to_sector(inode, offset);

@@ -20,23 +20,17 @@ static inline size_t bytes_to_sectors(off_t size) {
     return DIV_ROUND_UP(size, BLOCK_SECTOR_SIZE);
 }
 
-/*! In-memory inode. */
-struct inode {
-    struct list_elem elem;              /*!< Element in inode list. */
-    block_sector_t sector;              /*!< Sector number of disk location. */
-    int open_cnt;                       /*!< Number of openers. */
-    bool removed;                       /*!< True if deleted, false otherwise. */
-    int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
-    struct inode_disk_root data;             /*!< Inode content. */
-};
+
 
 /*! Returns the block device sector that contains byte offset POS
     within INODE.
     */
 block_sector_t byte_to_sector(struct inode *inode, off_t byte) {
     ASSERT(inode != NULL);
-    int sec = byte / BLOCK_SECTOR_SIZE;
-    return *num_to_sec(&inode->data, sec, false);
+    int sec_num = byte / BLOCK_SECTOR_SIZE;
+  //  block_sector_t *sec;
+//    free_map_allocate(1, sec);
+    return *num_to_sec(&inode->data, sec_num, true);
 }
 
 block_sector_t * num_to_sec(struct inode_disk_root *root, int sec_num, bool write_flag)
@@ -103,15 +97,15 @@ bool inode_create(block_sector_t sector, off_t length) {
         root->magic = INODE_MAGIC;
         bool all_good = true;
         size_t i;
-        block_sector_t *sec = NULL;
+        block_sector_t sec; 
         for(i = 0; i < sectors; i++)
         {
-            if(! free_map_allocate(1, sec))
+            if(! free_map_allocate(1, &sec))
             {
                 all_good = false;
                 break;
             }
-            *num_to_sec(root, i, true) = *sec;
+            *num_to_sec(root, i, true) = sec;
         }
         if(! all_good)
         {

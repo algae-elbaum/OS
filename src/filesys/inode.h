@@ -4,8 +4,10 @@
 #include <stdbool.h>
 #include "filesys/off_t.h"
 #include "devices/block.h"
+#include <list.h>
 
 struct bitmap;
+
 
 /* Root layer inode. Points to level one or two or disk */
 struct inode_disk_root {
@@ -17,9 +19,9 @@ struct inode_disk_root {
 };
 /* First layer inode. It comes from root and points to level two */
 struct inode_disk_one {
-    // Pointers shouldn't be larger than 1 byte, so we can point to
-    // 512 level two inodes. Since each of those is 64kB, a level one
-    // supports 32 MB.
+    // Pointers should be 4 bytes, so we can point to
+    // 128 level two inodes. Since each of those is 64kB, a level one
+    // supports 8 MB.
     struct inode_disk_two* twos[BLOCK_SECTOR_SIZE / sizeof(struct inode_disk_two *)];
 };
 /* Second layer inode. Comes from level one or root and points to disk */
@@ -27,6 +29,16 @@ struct inode_disk_two {
     // We want to store an array of sector numbers and max out how many we have
     // This is 128 sectors. Which is 64 kB.
     block_sector_t sectors[BLOCK_SECTOR_SIZE / sizeof(block_sector_t)];
+};
+
+/*! In-memory inode. */
+struct inode {
+    struct list_elem elem;              /*!< Element in inode list. */
+    block_sector_t sector;              /*!< Sector number of disk location. */
+    int open_cnt;                       /*!< Number of openers. */
+    bool removed;                       /*!< True if deleted, false otherwise. */
+    int deny_write_cnt;                 /*!< 0: writes ok, >0: deny writes. */
+    struct inode_disk_root data;             /*!< Inode content. */
 };
 
 void inode_init(void);
