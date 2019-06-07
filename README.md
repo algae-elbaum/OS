@@ -1,3 +1,3 @@
 # OS
 
-Operating systems course OS, built on top of Pintos by Henry Elbaum, Kyle Seipp, and Adrian Harry
+Operating systems course OS, built on top of Pintos by Algae Elbaum, Kyle Seipp, and Adrian Harry
